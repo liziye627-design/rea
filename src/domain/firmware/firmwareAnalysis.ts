@@ -169,3 +169,4 @@ export * from "./socPeripheralDatabase.js";
 export * from "./socPeripheralRegisters.js";
 export * from "./armVectorTable.js";
 export * from "./riscvTrapVector.js";
+export * from "./vectorTableLocator.js";
