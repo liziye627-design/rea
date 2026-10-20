@@ -51,6 +51,8 @@ export class PlaywrightScenarioServiceWorkers {
   #released = false;
   #detached = false;
   #loadingStopped = false;
+  #stopRequested = false;
+  #releasedWithoutStop = false;
   #removeListener: (() => void) | undefined;
   #setup = new AbortController();
 
@@ -315,7 +317,8 @@ export class PlaywrightScenarioServiceWorkers {
     this.#closed = true;
     // Abort discovery/handshakes and reads, never an already-sent page mutation.
     this.#setup.abort();
-    const restoration = (this.#restoration ??= this.restore(stopLoading));
+    if (stopLoading) this.#stopRequested = true;
+    const restoration = (this.#restoration ??= this.restore());
     void restoration.then(
       () => {
         if (this.#restoration === restoration) this.#restoration = undefined;
@@ -324,13 +327,38 @@ export class PlaywrightScenarioServiceWorkers {
         if (this.#restoration === restoration) this.#restoration = undefined;
       },
     );
+    // A cached restoration remembers the first stop choice. A later close can
+    // request a stop while that work is still running, or after it released
+    // the policy session, so the stop is confirmed separately.
+    const completed = this.#stopRequested
+      ? restoration.then(() => this.confirmRequestedStop())
+      : restoration;
     return withPlaywrightExecutionBoundary(
-      () => restoration,
+      () => completed,
       POLICY_CLEANUP_CONFIRMATION_TIMEOUT_MS,
     );
   }
 
-  private async restore(stopLoading: boolean): Promise<void> {
+  private async confirmRequestedStop(): Promise<void> {
+    if (!this.#stopRequested || this.#loadingStopped) return;
+    const session = this.#session;
+    if (
+      session?.sessionId !== undefined &&
+      !this.#released &&
+      !this.#detached
+    ) {
+      await this.send(session.sessionId, "Page.stopLoading");
+      this.#loadingStopped = true;
+      return;
+    }
+    if (!this.page.isClosed()) await this.stopMainFrame(this.page.mainFrame());
+    if (this.#loadingStopped || !this.#releasedWithoutStop) return;
+    throw new Error(
+      "navigation stop was requested after the policy session was released",
+    );
+  }
+
+  private async restore(): Promise<void> {
     await this.#initialization?.catch(() => undefined);
     if (this.#released) return;
     const session = this.#session;
@@ -339,14 +367,7 @@ export class PlaywrightScenarioServiceWorkers {
       const mainFrame = this.page.mainFrame();
       // This owner exists even with empty storage seeds. Stopped navigation is
       // independent of storage and restoration never waits for a load event.
-      if (stopLoading && !this.#loadingStopped) {
-        if (!this.#detached && session.sessionId !== undefined) {
-          await this.send(session.sessionId, "Page.stopLoading");
-          this.#loadingStopped = true;
-        } else {
-          await this.stopMainFrame(mainFrame);
-        }
-      }
+      await this.confirmRequestedStop();
       await Promise.all(
         [...this.#targets.values()].map((target) =>
           this.settleTargetForRestore(target),
@@ -383,6 +404,9 @@ export class PlaywrightScenarioServiceWorkers {
         if (frame.url().length === 0) continue;
         await this.restorePlaywrightFrame(frame);
       }
+      // A stop requested while frame restoration was in flight is still owed
+      // before this session is detached.
+      await this.confirmRequestedStop();
     }
     // Detaching the exact owned session also releases its iframe auto-attach.
     if (
@@ -396,7 +420,13 @@ export class PlaywrightScenarioServiceWorkers {
       this.#detached = true;
     }
     this.#removeListener?.();
+    this.noteUnstoppedRelease();
     await session.connection.close();
     this.#released = true;
+  }
+
+  private noteUnstoppedRelease(): void {
+    if (this.#loadingStopped || this.page.isClosed()) return;
+    this.#releasedWithoutStop = true;
   }
 }

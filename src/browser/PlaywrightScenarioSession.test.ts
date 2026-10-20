@@ -98,6 +98,7 @@ vi.mock("./PlaywrightScenarioEvents.js", () => ({
 }));
 
 import { browserScenarioSchema } from "../domain/browserScenario.js";
+import { PlaywrightScenarioServiceWorkers } from "./PlaywrightScenarioServiceWorkers.js";
 import { PlaywrightScenarioSession } from "./PlaywrightScenarioSession.js";
 
 const scenario = browserScenarioSchema.parse({
@@ -325,6 +326,173 @@ it("transfers a late stop request after storage has already released", async () 
     ),
   ).toHaveLength(1);
   expect(cleanup.close).toHaveBeenCalledTimes(1);
+});
+
+const attachedBlockedScenario = () =>
+  browserScenarioSchema.parse({
+    ...scenario,
+    browser: {
+      mode: "connect",
+      cdp_endpoint: "http://127.0.0.1:9222",
+      target_id: "target",
+    },
+    environment: { service_workers: "block" },
+  });
+
+const holdPolicyRestoration = () => {
+  let finish: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  mocks.policySend.mockImplementation(async (method: string) => {
+    if (method === "Runtime.evaluate") await held;
+    return policyResponse(method);
+  });
+  return () => {
+    finish();
+  };
+};
+
+it("confirms a late navigation stop before releasing an in-flight policy session", async () => {
+  const { cleanup, storage } = fixture();
+  const cancellation = new AbortController();
+  storage?.close.mockResolvedValue({ loadingStopped: false });
+  const session = await PlaywrightScenarioSession.open(
+    attachedBlockedScenario(),
+    {},
+    { signal: cancellation.signal },
+  );
+  const finish = holdPolicyRestoration();
+  const policyClose = PlaywrightScenarioServiceWorkers.prototype.close;
+  let stopRequested: () => void = () => undefined;
+  const stopRequestedAt = new Promise<void>((resolve) => {
+    stopRequested = resolve;
+  });
+  const closeSpy = vi
+    .spyOn(PlaywrightScenarioServiceWorkers.prototype, "close")
+    .mockImplementation(function (
+      this: PlaywrightScenarioServiceWorkers,
+      stopLoading = false,
+    ) {
+      if (stopLoading) stopRequested();
+      return policyClose.call(this, stopLoading);
+    });
+
+  vi.useFakeTimers();
+  try {
+    const first = session.close(false).then(
+      () => ({ ok: true as const }),
+      (cause: unknown) => ({ ok: false as const, cause }),
+    );
+    await vi.advanceTimersByTimeAsync(5_001);
+    await expect(first).resolves.toMatchObject({
+      ok: false,
+      cause: { cleanupIncomplete: true },
+    });
+    expect(cleanup.close).not.toHaveBeenCalled();
+    cancellation.abort();
+    const retry = session.close();
+    await stopRequestedAt;
+    finish();
+    await expect(retry).resolves.toBe("disconnected-external");
+  } finally {
+    closeSpy.mockRestore();
+    vi.useRealTimers();
+  }
+
+  expect(storage?.close.mock.calls).toEqual([[false], [true]]);
+  expect(cleanup.close).toHaveBeenCalledTimes(1);
+  expect(mocks.policyTransportClose).toHaveBeenCalledTimes(1);
+  const stopIndex = mocks.policySend.mock.calls.findIndex(
+    ([method]) => method === "Page.stopLoading",
+  );
+  expect(stopIndex).toBeGreaterThanOrEqual(0);
+  expect(mocks.policySend.mock.invocationCallOrder[stopIndex]).toBeLessThan(
+    mocks.policyTransportClose.mock.invocationCallOrder[0] ?? 0,
+  );
+});
+
+it("stops the open page when a late stop arrives after policy release", async () => {
+  const { cleanup, page, storage } = fixture();
+  const cancellation = new AbortController();
+  storage?.close.mockResolvedValue({ loadingStopped: false });
+  const session = await PlaywrightScenarioSession.open(
+    attachedBlockedScenario(),
+    {},
+    { signal: cancellation.signal },
+  );
+  const finish = holdPolicyRestoration();
+
+  vi.useFakeTimers();
+  try {
+    const first = session.close(false).then(
+      () => ({ ok: true as const }),
+      (cause: unknown) => ({ ok: false as const, cause }),
+    );
+    await vi.advanceTimersByTimeAsync(5_001);
+    await expect(first).resolves.toMatchObject({ ok: false });
+    finish();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.policyTransportClose).toHaveBeenCalledTimes(1);
+    cancellation.abort();
+    await expect(session.close()).resolves.toBe("disconnected-external");
+  } finally {
+    vi.useRealTimers();
+  }
+
+  expect(
+    page.evaluate.mock.calls.filter(
+      ([script]) => script === "globalThis.stop()",
+    ),
+  ).toHaveLength(1);
+  expect(
+    mocks.policySend.mock.calls.filter(
+      ([method]) => method === "Page.stopLoading",
+    ),
+  ).toHaveLength(0);
+  expect(cleanup.close).toHaveBeenCalledTimes(1);
+});
+
+it("keeps cleanup incomplete when a late stop can no longer reach the page", async () => {
+  const { cleanup, page, storage } = fixture();
+  const cancellation = new AbortController();
+  storage?.close.mockResolvedValue({ loadingStopped: false });
+  const session = await PlaywrightScenarioSession.open(
+    attachedBlockedScenario(),
+    {},
+    { signal: cancellation.signal },
+  );
+  const finish = holdPolicyRestoration();
+
+  vi.useFakeTimers();
+  try {
+    const first = session.close(false).then(
+      () => ({ ok: true as const }),
+      (cause: unknown) => ({ ok: false as const, cause }),
+    );
+    await vi.advanceTimersByTimeAsync(5_001);
+    await expect(first).resolves.toMatchObject({ ok: false });
+    finish();
+    await vi.advanceTimersByTimeAsync(1);
+    page.isClosed = () => true;
+    cancellation.abort();
+    await expect(session.close()).rejects.toMatchObject({
+      cleanupIncomplete: true,
+      cause: {
+        message:
+          "navigation stop was requested after the policy session was released",
+      },
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+
+  expect(cleanup.close).not.toHaveBeenCalled();
+  expect(
+    mocks.policySend.mock.calls.filter(
+      ([method]) => method === "Page.stopLoading",
+    ),
+  ).toHaveLength(0);
 });
 
 it("retains transferred navigation stopping after setup cleanup fails", async () => {
