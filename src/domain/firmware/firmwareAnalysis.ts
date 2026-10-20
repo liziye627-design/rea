@@ -164,3 +164,6 @@ export const firmwareResultSchemas = {
 
 export * from "./hardwareMemoryMap.js";
 export * from "./hardwarePeripheralAttribution.js";
+export * from "./hardwareRegisterCatalog.js";
+export * from "./socPeripheralDatabase.js";
+export * from "./armVectorTable.js";
