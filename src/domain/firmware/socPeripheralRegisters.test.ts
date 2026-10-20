@@ -105,6 +105,102 @@ describe("GPIO and Clock Control register lookup", () => {
   });
 });
 
+describe("RP2040 UART and SIO register lookup", () => {
+  it("resolves RP2040 PL011 UART baud rate divisors and control registers", () => {
+    // UART0 at 0x40034000
+    const dr = lookupSocPeripheralRegister("0x40034000", "rp2040");
+    expect(dr?.mnemonic).toBe("UART0_DR");
+
+    const ibrd = lookupSocPeripheralRegister("0x40034024", "rp2040");
+    expect(ibrd?.mnemonic).toBe("UART0_IBRD");
+    expect(ibrd?.registerName).toBe("UART0 Integer baud rate divisor");
+
+    const fbrd = lookupSocPeripheralRegister("0x40034028", "rp2040");
+    expect(fbrd?.mnemonic).toBe("UART0_FBRD");
+
+    const cr = lookupSocPeripheralRegister("0x40034030", "rp2040");
+    expect(cr?.mnemonic).toBe("UART0_CR");
+  });
+
+  it("resolves RP2040 SIO fast GPIO input, output, and atomic set/clear registers", () => {
+    const cpuid = lookupSocPeripheralRegister("0xd0000000", "rp2040");
+    expect(cpuid?.mnemonic).toBe("SIO_CPUID");
+    expect(cpuid?.access).toBe("read");
+
+    const gpioIn = lookupSocPeripheralRegister("0xd0000004", "rp2040");
+    expect(gpioIn?.mnemonic).toBe("SIO_GPIO_IN");
+
+    const gpioOutSet = lookupSocPeripheralRegister("0xd0000014", "rp2040");
+    expect(gpioOutSet?.mnemonic).toBe("SIO_GPIO_OUT_SET");
+    expect(gpioOutSet?.access).toBe("write");
+
+    const gpioOe = lookupSocPeripheralRegister("0xd0000020", "rp2040");
+    expect(gpioOe?.mnemonic).toBe("SIO_GPIO_OE");
+  });
+});
+
+describe("Nordic nRF52 UARTE and GPIO register lookup", () => {
+  it("resolves nRF52 UARTE EasyDMA baud rate, tasks, and events", () => {
+    // UART0 / UARTE0 at 0x40002000
+    const startTx = lookupSocPeripheralRegister("0x40002008", "nrf52");
+    expect(startTx?.mnemonic).toBe("UART0_TASKS_STARTTX");
+    expect(startTx?.access).toBe("write");
+
+    const endRx = lookupSocPeripheralRegister("0x40002114", "nrf52");
+    expect(endRx?.mnemonic).toBe("UART0_EVENTS_ENDRX");
+
+    const baudrate = lookupSocPeripheralRegister("0x40002524", "nrf52");
+    expect(baudrate?.mnemonic).toBe("UART0_BAUDRATE");
+    expect(baudrate?.registerName).toBe("UART0 Baud rate configuration");
+
+    const rxdPtr = lookupSocPeripheralRegister("0x40002534", "nrf52");
+    expect(rxdPtr?.mnemonic).toBe("UART0_RXD_PTR");
+  });
+
+  it("resolves nRF52 P0 port output, set, and input registers", () => {
+    // P0 at 0x50000000
+    const out = lookupSocPeripheralRegister("0x50000504", "nrf52");
+    expect(out?.mnemonic).toBe("P0_OUT");
+
+    const outset = lookupSocPeripheralRegister("0x50000508", "nrf52");
+    expect(outset?.mnemonic).toBe("P0_OUTSET");
+    expect(outset?.access).toBe("write");
+
+    const pinIn = lookupSocPeripheralRegister("0x50000510", "nrf52");
+    expect(pinIn?.mnemonic).toBe("P0_IN");
+    expect(pinIn?.access).toBe("read");
+  });
+});
+
+describe("STM32 Timer, SPI, and I2C register lookup", () => {
+  it("resolves STM32 TIM2 counter, prescaler, auto-reload, and compare registers", () => {
+    const cr1 = lookupSocPeripheralRegister("0x40000000", "stm32f1");
+    expect(cr1?.mnemonic).toBe("TIM2_CR1");
+
+    const psc = lookupSocPeripheralRegister("0x40000028", "stm32f1");
+    expect(psc?.mnemonic).toBe("TIM2_PSC");
+
+    const arr = lookupSocPeripheralRegister("0x4000002c", "stm32f1");
+    expect(arr?.mnemonic).toBe("TIM2_ARR");
+  });
+
+  it("resolves STM32 SPI1 control and status registers", () => {
+    const cr1 = lookupSocPeripheralRegister("0x40013000", "stm32f1");
+    expect(cr1?.mnemonic).toBe("SPI1_CR1");
+
+    const sr = lookupSocPeripheralRegister("0x40013008", "stm32f1");
+    expect(sr?.mnemonic).toBe("SPI1_SR");
+  });
+
+  it("resolves STM32 I2C1 control, address, and clock control registers", () => {
+    const cr1 = lookupSocPeripheralRegister("0x40005400", "stm32f1");
+    expect(cr1?.mnemonic).toBe("I2C1_CR1");
+
+    const ccr = lookupSocPeripheralRegister("0x4000541c", "stm32f1");
+    expect(ccr?.mnemonic).toBe("I2C1_CCR");
+  });
+});
+
 describe("ESP32 UART and GPIO register lookup", () => {
   it("resolves ESP32 UART0 FIFO, CLKDIV (baud rate), and CONF0 registers", () => {
     const fifo = lookupSocPeripheralRegister("0x3ff40000", "esp32");

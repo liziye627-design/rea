@@ -9,7 +9,7 @@ import {
   type SocPlatform,
 } from "./socPeripheralDatabase.js";
 import { lookupSocPeripheralRegister } from "./socPeripheralRegisters.js";
-import { err, ok, type Result } from "../result.js";
+import { ok, type Result } from "../result.js";
 
 /** Minimal input reference contract representing an analyzed instruction reference. */
 export interface AnalyzedInstructionReference {

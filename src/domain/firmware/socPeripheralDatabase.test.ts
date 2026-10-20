@@ -49,6 +49,64 @@ describe("STM32 and GD32 peripheral lookup", () => {
   });
 });
 
+describe("RP2040 and Nordic nRF52 peripheral lookup", () => {
+  it("resolves RP2040 APB, AHB, and SIO peripheral blocks", () => {
+    // RP2040 SIO at 0xd0000000
+    const sio = lookupSocPeripheral("0xd0000004", "rp2040");
+    expect(sio).not.toBeNull();
+    expect(sio?.name).toBe("SIO");
+    expect(sio?.bus).toBe("SIO");
+    expect(sio?.baseAddress).toBe("0xd0000000");
+
+    // RP2040 PIO0 at 0x50200000 (AHB)
+    const pio0 = lookupSocPeripheral("0x50200000", "rp2040");
+    expect(pio0?.name).toBe("PIO0");
+    expect(pio0?.bus).toBe("AHB");
+
+    // RP2040 UART0 at 0x40034000 (APB)
+    const uart0 = lookupSocPeripheral("0x40034008", "rp2040");
+    expect(uart0?.name).toBe("UART0");
+    expect(uart0?.bus).toBe("APB");
+
+    // RP2040 TIMER at 0x40054000
+    const timer = lookupSocPeripheral("0x40054000", "rp2040");
+    expect(timer?.name).toBe("TIMER");
+  });
+
+  it("resolves Nordic nRF52 RADIO, UARTE, and P0 GPIO peripheral blocks", () => {
+    // nRF52 RADIO at 0x40001000
+    const radio = lookupSocPeripheral("0x40001004", "nrf52");
+    expect(radio).not.toBeNull();
+    expect(radio?.name).toBe("RADIO");
+    expect(radio?.bus).toBe("APB");
+
+    // nRF52 UART0/UARTE0 at 0x40002000
+    const uart0 = lookupSocPeripheral("0x40002000", "nrf52");
+    expect(uart0?.name).toBe("UART0");
+
+    // nRF52 GPIOTE at 0x40006000
+    const gpiote = lookupSocPeripheral("0x40006000", "nrf52");
+    expect(gpiote?.name).toBe("GPIOTE");
+
+    // nRF52 P0 GPIO at 0x50000000 (System)
+    const p0 = lookupSocPeripheral("0x50000504", "nrf52");
+    expect(p0?.name).toBe("P0");
+    expect(p0?.bus).toBe("System");
+  });
+
+  it("detects RP2040 and nRF52 platform candidates from observed MMIO address set", () => {
+    const rp2040Addrs = ["0xd0000000", "0x50200000", "0x40034000"];
+    const rp2040Candidates = detectSocPlatform(rp2040Addrs);
+    expect(rp2040Candidates[0]?.platform).toBe("rp2040");
+    expect(rp2040Candidates[0]?.confidence).toBe(1.0);
+
+    const nrf52Addrs = ["0x40001000", "0x40002000", "0x50000000"];
+    const nrf52Candidates = detectSocPlatform(nrf52Addrs);
+    expect(nrf52Candidates[0]?.platform).toBe("nrf52");
+    expect(nrf52Candidates[0]?.confidence).toBe(1.0);
+  });
+});
+
 describe("ESP32 peripheral lookup and automated platform detection", () => {
   it("resolves ESP32 DPort and RTC peripheral blocks", () => {
     const uart0 = lookupSocPeripheral("0x3ff40004", "esp32");

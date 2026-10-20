@@ -4,6 +4,7 @@ import {
   type SocPlatform,
   socPlatformSchema,
 } from "./socPeripheralDatabase.js";
+import { resolveIrqDescriptor } from "./armIrqMaps.js";
 
 /** ARM Cortex-M exception and interrupt categories. */
 export const armVectorKindSchema = z.enum([
@@ -103,7 +104,7 @@ const SYSTEM_EXCEPTIONS: readonly SystemExceptionDescriptor[] = [
     name: "UsageFault_Handler",
     kind: "system_exception",
     description:
-      "Usage Fault handler (undefined instruction or unaligned access)",
+      "Usage Fault handler (undefined instruction, unaligned access)",
   },
   {
     name: "Reserved_7",
@@ -152,231 +153,6 @@ const SYSTEM_EXCEPTIONS: readonly SystemExceptionDescriptor[] = [
   },
 ];
 
-interface IrqDescriptor {
-  readonly name: string;
-  readonly peripheral: string | null;
-  readonly description: string;
-}
-
-// STM32F10x / GD32F10x standard interrupt vector table (RM0008).
-const STM32F1_IRQS: readonly IrqDescriptor[] = [
-  {
-    name: "WWDG_IRQHandler",
-    peripheral: "WWDG",
-    description: "Window Watchdog interrupt",
-  },
-  {
-    name: "PVD_IRQHandler",
-    peripheral: "PWR",
-    description: "PVD through EXTI Line detection interrupt",
-  },
-  {
-    name: "TAMPER_IRQHandler",
-    peripheral: null,
-    description: "Tamper interrupt",
-  },
-  {
-    name: "RTC_IRQHandler",
-    peripheral: "RTC",
-    description: "RTC global interrupt",
-  },
-  {
-    name: "FLASH_IRQHandler",
-    peripheral: "Flash_IF",
-    description: "Flash memory global interrupt",
-  },
-  {
-    name: "RCC_IRQHandler",
-    peripheral: "RCC",
-    description: "RCC global interrupt",
-  },
-  {
-    name: "EXTI0_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line 0 interrupt",
-  },
-  {
-    name: "EXTI1_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line 1 interrupt",
-  },
-  {
-    name: "EXTI2_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line 2 interrupt",
-  },
-  {
-    name: "EXTI3_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line 3 interrupt",
-  },
-  {
-    name: "EXTI4_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line 4 interrupt",
-  },
-  {
-    name: "DMA1_Channel1_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 1 interrupt",
-  },
-  {
-    name: "DMA1_Channel2_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 2 interrupt",
-  },
-  {
-    name: "DMA1_Channel3_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 3 interrupt",
-  },
-  {
-    name: "DMA1_Channel4_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 4 interrupt",
-  },
-  {
-    name: "DMA1_Channel5_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 5 interrupt",
-  },
-  {
-    name: "DMA1_Channel6_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 6 interrupt",
-  },
-  {
-    name: "DMA1_Channel7_IRQHandler",
-    peripheral: "DMA1",
-    description: "DMA1 Channel 7 interrupt",
-  },
-  {
-    name: "ADC1_2_IRQHandler",
-    peripheral: "ADC1",
-    description: "ADC1 and ADC2 global interrupt",
-  },
-  {
-    name: "USB_HP_CAN_TX_IRQHandler",
-    peripheral: "CAN1",
-    description: "USB High Priority or CAN TX interrupt",
-  },
-  {
-    name: "USB_LP_CAN_RX0_IRQHandler",
-    peripheral: "CAN1",
-    description: "USB Low Priority or CAN RX0 interrupt",
-  },
-  {
-    name: "CAN_RX1_IRQHandler",
-    peripheral: "CAN1",
-    description: "CAN RX1 interrupt",
-  },
-  {
-    name: "CAN_SCE_IRQHandler",
-    peripheral: "CAN1",
-    description: "CAN SCE interrupt",
-  },
-  {
-    name: "EXTI9_5_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line [9:5] interrupts",
-  },
-  {
-    name: "TIM1_BRK_IRQHandler",
-    peripheral: "TIM1",
-    description: "TIM1 Break interrupt",
-  },
-  {
-    name: "TIM1_UP_IRQHandler",
-    peripheral: "TIM1",
-    description: "TIM1 Update interrupt",
-  },
-  {
-    name: "TIM1_TRG_COM_IRQHandler",
-    peripheral: "TIM1",
-    description: "TIM1 Trigger and Commutation interrupt",
-  },
-  {
-    name: "TIM1_CC_IRQHandler",
-    peripheral: "TIM1",
-    description: "TIM1 Capture Compare interrupt",
-  },
-  {
-    name: "TIM2_IRQHandler",
-    peripheral: "TIM2",
-    description: "TIM2 global interrupt",
-  },
-  {
-    name: "TIM3_IRQHandler",
-    peripheral: "TIM3",
-    description: "TIM3 global interrupt",
-  },
-  {
-    name: "TIM4_IRQHandler",
-    peripheral: "TIM4",
-    description: "TIM4 global interrupt",
-  },
-  {
-    name: "I2C1_EV_IRQHandler",
-    peripheral: "I2C1",
-    description: "I2C1 Event interrupt",
-  },
-  {
-    name: "I2C1_ER_IRQHandler",
-    peripheral: "I2C1",
-    description: "I2C1 Error interrupt",
-  },
-  {
-    name: "I2C2_EV_IRQHandler",
-    peripheral: "I2C2",
-    description: "I2C2 Event interrupt",
-  },
-  {
-    name: "I2C2_ER_IRQHandler",
-    peripheral: "I2C2",
-    description: "I2C2 Error interrupt",
-  },
-  {
-    name: "SPI1_IRQHandler",
-    peripheral: "SPI1",
-    description: "SPI1 global interrupt",
-  },
-  {
-    name: "SPI2_IRQHandler",
-    peripheral: "SPI2",
-    description: "SPI2 global interrupt",
-  },
-  {
-    name: "USART1_IRQHandler",
-    peripheral: "USART1",
-    description: "USART1 global interrupt",
-  },
-  {
-    name: "USART2_IRQHandler",
-    peripheral: "USART2",
-    description: "USART2 global interrupt",
-  },
-  {
-    name: "USART3_IRQHandler",
-    peripheral: "USART3",
-    description: "USART3 global interrupt",
-  },
-  {
-    name: "EXTI15_10_IRQHandler",
-    peripheral: "EXTI",
-    description: "EXTI Line [15:10] interrupts",
-  },
-  {
-    name: "RTCAlarm_IRQHandler",
-    peripheral: "RTC",
-    description: "RTC Alarm through EXTI Line interrupt",
-  },
-  {
-    name: "USBWakeUp_IRQHandler",
-    peripheral: "EXTI",
-    description: "USB Wakeup from suspend through EXTI Line interrupt",
-  },
-];
-
 const readWordLe = (data: Uint8Array, offset: number): bigint => {
   const byte0 = BigInt(data[offset] ?? 0);
   const byte1 = BigInt(data[offset + 1] ?? 0);
@@ -398,27 +174,20 @@ const isLikelyCodePointer = (val: bigint, baseAddress: bigint): boolean => {
   // Cortex-M Thumb code pointers must have bit 0 set (odd number)
   if ((val & 1n) !== 1n) return false;
   const execAddr = val & ~1n;
-  // Execution address must be reasonably near the baseAddress or in Flash (0x08000000 or 0x00000000)
+  // Execution address must be reasonably near the baseAddress or in Flash (0x08000000, 0x10000000, or 0x00000000)
   const isNearBase =
     execAddr >= baseAddress && execAddr <= baseAddress + 0x01000000n;
   const isStandardFlash = execAddr >= 0x08000000n && execAddr <= 0x08ffffffn;
+  const isRp2040Flash = execAddr >= 0x10000000n && execAddr <= 0x13ffffffn;
   const isAliasedBoot = execAddr >= 0x00000000n && execAddr <= 0x00ffffffn;
-  return isNearBase || isStandardFlash || isAliasedBoot;
-};
-
-const resolveIrqDescriptor = (
-  irqNumber: number,
-  platform: SocPlatform | null,
-): IrqDescriptor => {
-  if (platform === "stm32f1" || platform === "gd32f1" || platform === null) {
-    const matched = STM32F1_IRQS[irqNumber];
-    if (matched) return matched;
-  }
-  return {
-    name: `IRQ${irqNumber}_Handler`,
-    peripheral: null,
-    description: `Peripheral IRQ ${irqNumber} vector`,
-  };
+  const isSramCode = execAddr >= 0x20000000n && execAddr <= 0x200fffffn;
+  return (
+    isNearBase ||
+    isStandardFlash ||
+    isRp2040Flash ||
+    isAliasedBoot ||
+    isSramCode
+  );
 };
 
 /**
@@ -531,7 +300,8 @@ export const parseArmVectorTable = (
 
 const CANDIDATE_BASE_ADDRESSES: readonly bigint[] = [
   0x08000000n, // Standard STM32 / GD32 Flash base
-  0x00000000n, // Standard ARM Cortex-M Boot aliased space
+  0x10000000n, // Raspberry Pi RP2040 XIP Flash base
+  0x00000000n, // Nordic nRF52 / Standard ARM Cortex-M Boot aliased space
   0x20000000n, // SRAM execution image
 ];
 

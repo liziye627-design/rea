@@ -27,6 +27,10 @@ import {
   armVectorTableSchema,
 } from "../../domain/firmware/armVectorTable.js";
 import {
+  type RiscvTrapTable,
+  riscvTrapTableSchema,
+} from "../../domain/firmware/riscvTrapVector.js";
+import {
   AnalysisCancelledError,
   AnalysisInputError,
   AnalysisOutputError,
@@ -65,12 +69,17 @@ export const reconstructProcedureHardwareInputSchema = z.strictObject({
   platform: socPlatformSchema
     .optional()
     .describe(
-      "Optional explicit target SoC family (stm32f1, stm32f4, gd32f1, esp32) for device-specific register mapping",
+      "Optional explicit target SoC family (stm32f1, stm32f4, gd32f1, esp32, rp2040, nrf52) for device-specific register mapping",
     ),
   vectorTable: armVectorTableSchema
     .optional()
     .describe(
       "Optional decoded firmware vector table to identify procedure as a hardware interrupt handler",
+    ),
+  trapTable: riscvTrapTableSchema
+    .optional()
+    .describe(
+      "Optional decoded RISC-V firmware trap table to identify procedure as a hardware interrupt or exception handler",
     ),
 });
 export type ReconstructProcedureHardwareInput = z.infer<
@@ -151,6 +160,14 @@ export const hardwarePeripheralReconstructionSchema = z.strictObject({
   limitations: z.array(z.string()),
 });
 
+/** Optional context parameters for hardware reconstruction. */
+export interface ReconstructHardwareOptions {
+  readonly procedure?: string;
+  readonly platform?: SocPlatform | null;
+  readonly vectorTable?: ArmVectorTable | null;
+  readonly trapTable?: RiscvTrapTable | null;
+}
+
 /**
  * Reconstruct hardware peripheral interactions from a set of analyzed instruction references.
  * Pure deterministic domain workflow for offline and provider-decoupled analysis.
@@ -158,10 +175,19 @@ export const hardwarePeripheralReconstructionSchema = z.strictObject({
 export const reconstructHardwareFromReferences = (
   references: readonly AnalyzedInstructionReference[],
   architecture: HardwareArchitecture,
-  procedure = "detached",
-  platform: SocPlatform | null = null,
-  vectorTable: ArmVectorTable | null = null,
+  procedureOrOptions: string | ReconstructHardwareOptions = "detached",
+  legacyPlatform: SocPlatform | null = null,
 ): HardwarePeripheralReconstruction => {
+  const options: ReconstructHardwareOptions =
+    typeof procedureOrOptions === "string"
+      ? { procedure: procedureOrOptions, platform: legacyPlatform }
+      : procedureOrOptions;
+
+  const procedure = options.procedure ?? "detached";
+  const platform = options.platform ?? null;
+  const vectorTable = options.vectorTable ?? null;
+  const trapTable = options.trapTable ?? null;
+
   const attributions: HardwareAccessAttribution[] = [];
   const limitations: string[] = [];
 
@@ -227,7 +253,18 @@ export const reconstructHardwareFromReferences = (
       v.targetAddress.toLowerCase() === procedure.toLowerCase() ||
       v.name.toLowerCase() === procedure.toLowerCase(),
   );
-  const vectorHandlerName = matchingVector?.name ?? null;
+  let vectorHandlerName = matchingVector?.name ?? null;
+
+  if (vectorHandlerName === null && trapTable != null) {
+    const matchingTrap = trapTable.entries.find(
+      (e) =>
+        e.targetAddress.toLowerCase() === procedure.toLowerCase() ||
+        e.name.toLowerCase() === procedure.toLowerCase(),
+    );
+    if (matchingTrap) {
+      vectorHandlerName = matchingTrap.name;
+    }
+  }
 
   return {
     procedure,
@@ -241,6 +278,47 @@ export const reconstructHardwareFromReferences = (
     attributions,
     detectedPlatforms,
     limitations,
+  };
+};
+
+type RawReferenceEdge = z.infer<
+  typeof procedureReferencesResultSchema
+>["references"][number];
+
+const toAnalyzedReference = (
+  edge: RawReferenceEdge,
+): AnalyzedInstructionReference | null => {
+  const kind = edge.kind;
+  if (!kind.available) {
+    return {
+      target_address: edge.target_address,
+      source_address: edge.source_address,
+      read: null,
+      write: null,
+      data: null,
+      call: false,
+      jump: false,
+      provenance: null,
+    };
+  }
+
+  // Ignore direct calls and jumps to other code procedures when analyzing data/MMIO accesses
+  if ((kind.call || kind.jump) && !kind.data) {
+    return null;
+  }
+
+  return {
+    target_address: edge.target_address,
+    source_address: edge.source_address,
+    read: kind.read,
+    write: kind.write,
+    data: kind.data,
+    call: kind.call,
+    jump: kind.jump,
+    ...(typeof kind.operand_index === "number"
+      ? { operand_index: kind.operand_index }
+      : {}),
+    provenance: kind.provenance,
   };
 };
 
@@ -269,7 +347,8 @@ export const reconstructProcedureHardwareInteractions = async (
     );
   }
 
-  const { procedure, architecture, platform, vectorTable } = parsed.data;
+  const { procedure, architecture, platform, vectorTable, trapTable } =
+    parsed.data;
 
   const execution = await analysis.execute(
     "procedure_references",
@@ -294,38 +373,23 @@ export const reconstructProcedureHardwareInteractions = async (
     );
   }
 
-  const candidateReferences = parsedReferences.data.references;
   const analyzedReferences: AnalyzedInstructionReference[] = [];
-
-  for (const edge of candidateReferences) {
-    const kind = edge.kind;
-    const isCallOrJump = kind.available && (kind.call || kind.jump);
-    // Ignore direct calls and jumps to other code procedures when analyzing data/MMIO accesses
-    if (isCallOrJump && !kind.data) {
-      continue;
+  for (const edge of parsedReferences.data.references) {
+    const ref = toAnalyzedReference(edge);
+    if (ref !== null) {
+      analyzedReferences.push(ref);
     }
-
-    analyzedReferences.push({
-      target_address: edge.target_address,
-      source_address: edge.source_address,
-      read: kind.available ? kind.read : null,
-      write: kind.available ? kind.write : null,
-      data: kind.available ? kind.data : null,
-      call: kind.available ? kind.call : false,
-      jump: kind.available ? kind.jump : false,
-      ...(kind.available && typeof kind.operand_index === "number"
-        ? { operand_index: kind.operand_index }
-        : {}),
-      provenance: kind.available ? kind.provenance : null,
-    });
   }
 
   const result = reconstructHardwareFromReferences(
     analyzedReferences,
     architecture,
-    procedure,
-    platform ?? null,
-    vectorTable ?? null,
+    {
+      procedure,
+      platform: platform ?? null,
+      vectorTable: vectorTable ?? null,
+      trapTable: trapTable ?? null,
+    },
   );
 
   return ok(result);

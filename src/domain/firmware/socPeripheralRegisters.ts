@@ -130,6 +130,158 @@ export const STM32_USART_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
     ),
   ];
 
+// STM32 General Purpose Timers (TIM1-TIM8).
+export const STM32_TIM_REGISTERS: readonly SocPeripheralRegisterDefinition[] = [
+  reg(
+    0x00,
+    "CR1",
+    "Control register 1",
+    "Counter enable (CEN), direction, auto-reload preload, clock division",
+  ),
+  reg(
+    0x04,
+    "CR2",
+    "Control register 2",
+    "Master mode selection (MMS), capture/compare DMA selection",
+  ),
+  reg(
+    0x08,
+    "SMCR",
+    "Slave mode control register",
+    "Slave mode selection (SMS), trigger selection (TS)",
+  ),
+  reg(
+    0x0c,
+    "DIER",
+    "DMA/Interrupt enable register",
+    "Update interrupt enable (UIE), capture/compare interrupt enables",
+  ),
+  reg(
+    0x10,
+    "SR",
+    "Status register",
+    "Update interrupt flag (UIF), capture/compare match flags",
+  ),
+  woReg(
+    0x14,
+    "EGR",
+    "Event generation register",
+    "Update generation (UG), capture/compare generation",
+  ),
+  reg(
+    0x18,
+    "CCMR1",
+    "Capture/Compare mode register 1",
+    "Channel 1 and 2 mode (PWM, input capture, output compare)",
+  ),
+  reg(
+    0x1c,
+    "CCMR2",
+    "Capture/Compare mode register 2",
+    "Channel 3 and 4 mode (PWM, input capture, output compare)",
+  ),
+  reg(
+    0x20,
+    "CCER",
+    "Capture/Compare enable register",
+    "Channel 1-4 output enable and polarity",
+  ),
+  reg(
+    0x24,
+    "CNT",
+    "Counter register",
+    "Current 16-bit or 32-bit counter value",
+  ),
+  reg(0x28, "PSC", "Prescaler register", "Clock prescaler division factor"),
+  reg(
+    0x2c,
+    "ARR",
+    "Auto-reload register",
+    "Period value determining timer overflow rate",
+  ),
+  reg(
+    0x34,
+    "CCR1",
+    "Capture/Compare register 1",
+    "Channel 1 duty cycle / compare match value",
+  ),
+  reg(
+    0x38,
+    "CCR2",
+    "Capture/Compare register 2",
+    "Channel 2 duty cycle / compare match value",
+  ),
+];
+
+// STM32 Serial Peripheral Interface (SPI1-SPI3).
+export const STM32_SPI_REGISTERS: readonly SocPeripheralRegisterDefinition[] = [
+  reg(
+    0x00,
+    "CR1",
+    "Control register 1",
+    "Clock phase/polarity, Master mode, Baud rate prescaler, SPI enable",
+  ),
+  reg(
+    0x04,
+    "CR2",
+    "Control register 2",
+    "TX/RX DMA enable, SS output enable, Error/TXE/RXNE interrupt enables",
+  ),
+  reg(
+    0x08,
+    "SR",
+    "Status register",
+    "RX buffer not empty (RXNE), TX buffer empty (TXE), Busy flag (BSY)",
+  ),
+  reg(0x0c, "DR", "Data register", "Transmit and receive data buffer"),
+  reg(0x10, "CRCPR", "CRC polynomial register", "CRC polynomial register"),
+  roReg(0x14, "RXCRCR", "RX CRC register", "Computed RX CRC register"),
+  roReg(0x18, "TXCRCR", "TX CRC register", "Computed TX CRC register"),
+];
+
+// STM32 Inter-Integrated Circuit (I2C1-I2C3).
+export const STM32_I2C_REGISTERS: readonly SocPeripheralRegisterDefinition[] = [
+  reg(
+    0x00,
+    "CR1",
+    "Control register 1",
+    "Peripheral enable (PE), START condition, STOP condition, ACK control",
+  ),
+  reg(
+    0x04,
+    "CR2",
+    "Control register 2",
+    "Peripheral clock frequency, Event/Buffer/Error interrupt enables, DMA enable",
+  ),
+  reg(0x08, "OAR1", "Own address register 1", "Interface own slave address 1"),
+  reg(
+    0x0c,
+    "OAR2",
+    "Own address register 2",
+    "Interface own slave address 2 (dual addressing mode)",
+  ),
+  reg(0x10, "DR", "Data register", "Transmit and receive data register"),
+  reg(
+    0x14,
+    "SR1",
+    "Status register 1",
+    "Start bit sent (SB), Address matched (ADDR), Byte transfer finished (BTF)",
+  ),
+  roReg(
+    0x18,
+    "SR2",
+    "Status register 2",
+    "Master/Slave mode (MSL), Bus busy (BUSY), Transmitter/Receiver (TRA)",
+  ),
+  reg(
+    0x1c,
+    "CCR",
+    "Clock control register",
+    "Fast/Standard mode selection, Clock divider determining SCL speed",
+  ),
+  reg(0x20, "TRISE", "TRISE register", "Maximum SCL rise time configuration"),
+];
+
 // STM32F1 / GD32F1 GPIO port register map.
 export const STM32F1_GPIO_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
   [
@@ -369,6 +521,328 @@ export const STM32F4_RCC_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
       "APB2ENR",
       "APB2 peripheral clock enable register",
       "Clock enable for TIM1/8/9/10/11, USART1/6, ADC1-3, SDIO, SPI1-6, SYSCFG",
+    ),
+  ];
+
+// Raspberry Pi RP2040 PrimeCell PL011 UART registers (UART0, UART1).
+export const RP2040_UART_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
+  [
+    reg(
+      0x00,
+      "DR",
+      "Data register",
+      "UART transmit and receive data FIFO access",
+    ),
+    reg(
+      0x04,
+      "RSR",
+      "Receive status register",
+      "Overrun, break, parity, and framing error flags and error clear",
+    ),
+    roReg(
+      0x18,
+      "FR",
+      "Flag register",
+      "FIFO status flags (TXFE, RXFF, TXFF, RXFE, BUSY, CTS)",
+    ),
+    reg(
+      0x24,
+      "IBRD",
+      "Integer baud rate divisor",
+      "Integer part of baud rate divisor (16 bits)",
+    ),
+    reg(
+      0x28,
+      "FBRD",
+      "Fractional baud rate divisor",
+      "Fractional part of baud rate divisor (6 bits, 1/64 divisor step)",
+    ),
+    reg(
+      0x2c,
+      "LCR_H",
+      "Line control register",
+      "Word length (WLEN), parity enable, two stop bits, FIFO enable (FEN)",
+    ),
+    reg(
+      0x30,
+      "CR",
+      "Control register",
+      "UART enable (UARTEN), transmit enable (TXE), receive enable (RXE), flow control",
+    ),
+    reg(
+      0x34,
+      "IFLS",
+      "Interrupt FIFO level select",
+      "RX and TX FIFO trigger interrupt watermark thresholds",
+    ),
+    reg(
+      0x38,
+      "IMSC",
+      "Interrupt mask set/clear",
+      "Interrupt enable mask for TX, RX, timeout, and modem status",
+    ),
+    roReg(
+      0x3c,
+      "RIS",
+      "Raw interrupt status",
+      "Raw interrupt status prior to masking",
+    ),
+    roReg(0x40, "MIS", "Masked interrupt status", "Masked interrupt status"),
+    woReg(
+      0x44,
+      "ICR",
+      "Interrupt clear register",
+      "Interrupt clear register for clearing pending interrupts",
+    ),
+    reg(
+      0x48,
+      "DMACR",
+      "DMA control register",
+      "Transmit and receive DMA enable (TXDMAE, RXDMAE)",
+    ),
+  ];
+
+// Raspberry Pi RP2040 Single-Cycle I/O (SIO) registers.
+export const RP2040_SIO_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
+  [
+    roReg(
+      0x00,
+      "CPUID",
+      "Processor core ID",
+      "Core identifier (0 for core 0, 1 for core 1)",
+    ),
+    roReg(
+      0x04,
+      "GPIO_IN",
+      "GPIO input values",
+      "Input logic values on GPIO pins 0 through 29",
+    ),
+    reg(
+      0x10,
+      "GPIO_OUT",
+      "GPIO output values",
+      "Driven output value on GPIO pins 0 through 29",
+    ),
+    woReg(
+      0x14,
+      "GPIO_OUT_SET",
+      "GPIO output set",
+      "Atomic bit set for GPIO output values",
+    ),
+    woReg(
+      0x18,
+      "GPIO_OUT_CLR",
+      "GPIO output clear",
+      "Atomic bit clear for GPIO output values",
+    ),
+    woReg(
+      0x1c,
+      "GPIO_OUT_XOR",
+      "GPIO output invert",
+      "Atomic bit invert for GPIO output values",
+    ),
+    reg(
+      0x20,
+      "GPIO_OE",
+      "GPIO output enable",
+      "Output driver enable on GPIO pins 0 through 29",
+    ),
+    woReg(
+      0x24,
+      "GPIO_OE_SET",
+      "GPIO output enable set",
+      "Atomic bit set for GPIO output driver enable",
+    ),
+    woReg(
+      0x28,
+      "GPIO_OE_CLR",
+      "GPIO output enable clear",
+      "Atomic bit clear for GPIO output driver enable",
+    ),
+    roReg(
+      0x50,
+      "FIFO_ST",
+      "Inter-core FIFO status",
+      "Status flags (VLD: data available, RDY: write ready)",
+    ),
+    woReg(
+      0x54,
+      "FIFO_WR",
+      "Inter-core FIFO write",
+      "Push 32-bit word into inter-core FIFO to other core",
+    ),
+    roReg(
+      0x58,
+      "FIFO_RD",
+      "Inter-core FIFO read",
+      "Pop 32-bit word from inter-core FIFO from other core",
+    ),
+  ];
+
+// Nordic Semiconductor nRF52 EasyDMA UART (UARTE0, UARTE1).
+export const NRF52_UARTE_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
+  [
+    woReg(
+      0x000,
+      "TASKS_STARTRX",
+      "Start receiver task",
+      "Start UART receiver with EasyDMA buffer",
+    ),
+    woReg(0x004, "TASKS_STOPRX", "Stop receiver task", "Stop UART receiver"),
+    woReg(
+      0x008,
+      "TASKS_STARTTX",
+      "Start transmitter task",
+      "Start UART transmitter with EasyDMA buffer",
+    ),
+    woReg(
+      0x00c,
+      "TASKS_STOPTX",
+      "Stop transmitter task",
+      "Stop UART transmitter",
+    ),
+    reg(
+      0x110,
+      "EVENTS_RXDRDY",
+      "Data ready in RXD event",
+      "Data received in RXD event",
+    ),
+    reg(
+      0x114,
+      "EVENTS_ENDRX",
+      "Receive buffer full event",
+      "EasyDMA receive buffer filled event",
+    ),
+    reg(
+      0x11c,
+      "EVENTS_TXDRDY",
+      "Data sent from TXD event",
+      "Data transmitted from TXD event",
+    ),
+    reg(
+      0x120,
+      "EVENTS_ENDTX",
+      "Transmit buffer drained event",
+      "EasyDMA transmit buffer drained event",
+    ),
+    reg(
+      0x124,
+      "EVENTS_ERROR",
+      "Error detected event",
+      "Parity, framing, or overrun error detected event",
+    ),
+    reg(
+      0x304,
+      "INTENSET",
+      "Interrupt enable set",
+      "Enable selected UART interrupts",
+    ),
+    reg(
+      0x308,
+      "INTENCLR",
+      "Interrupt enable clear",
+      "Disable selected UART interrupts",
+    ),
+    reg(
+      0x500,
+      "ENABLE",
+      "Enable UART transceiver",
+      "Enable or disable UART (0: Disabled, 8: Enabled)",
+    ),
+    reg(
+      0x524,
+      "BAUDRATE",
+      "Baud rate configuration",
+      "UART baud rate constant (e.g. 0x01D7E000 for 115200 bps)",
+    ),
+    reg(
+      0x534,
+      "RXD_PTR",
+      "EasyDMA RX buffer pointer",
+      "RAM buffer pointer for receiving data",
+    ),
+    reg(
+      0x538,
+      "RXD_MAXCNT",
+      "RX buffer maximum count",
+      "Maximum byte capacity of EasyDMA RX buffer",
+    ),
+    roReg(
+      0x53c,
+      "RXD_AMOUNT",
+      "RX bytes transferred",
+      "Number of bytes received in current EasyDMA transaction",
+    ),
+    reg(
+      0x544,
+      "TXD_PTR",
+      "EasyDMA TX buffer pointer",
+      "RAM buffer pointer for transmitting data",
+    ),
+    reg(
+      0x548,
+      "TXD_MAXCNT",
+      "TX buffer maximum count",
+      "Maximum byte count of EasyDMA TX buffer",
+    ),
+    roReg(
+      0x54c,
+      "TXD_AMOUNT",
+      "TX bytes transferred",
+      "Number of bytes transmitted in current EasyDMA transaction",
+    ),
+    reg(
+      0x56c,
+      "CONFIG",
+      "Configuration register",
+      "Hardware flow control (HWFC) and parity configuration",
+    ),
+  ];
+
+// Nordic Semiconductor nRF52 GPIO port registers (P0, P1).
+export const NRF52_GPIO_REGISTERS: readonly SocPeripheralRegisterDefinition[] =
+  [
+    reg(
+      0x504,
+      "OUT",
+      "Port output register",
+      "Write output latch for GPIO port pins",
+    ),
+    woReg(
+      0x508,
+      "OUTSET",
+      "Port output set register",
+      "Atomic bit set for GPIO output latch",
+    ),
+    woReg(
+      0x50c,
+      "OUTCLR",
+      "Port output clear register",
+      "Atomic bit clear for GPIO output latch",
+    ),
+    roReg(
+      0x510,
+      "IN",
+      "Port input register",
+      "Read input logic level on GPIO port pins",
+    ),
+    reg(
+      0x514,
+      "DIR",
+      "Port direction register",
+      "Direction configuration (0: Input, 1: Output)",
+    ),
+    woReg(
+      0x518,
+      "DIRSET",
+      "Port direction set register",
+      "Atomic bit set for pin direction to output",
+    ),
+    woReg(
+      0x51c,
+      "DIRCLR",
+      "Port direction clear register",
+      "Atomic bit clear for pin direction to input",
     ),
   ];
 
@@ -640,6 +1114,17 @@ const resolveRegisterDefinitions = (
   peripheralName: string,
   platform: SocPlatform,
 ): readonly SocPeripheralRegisterDefinition[] | null => {
+  if (platform === "rp2040") {
+    if (peripheralName.startsWith("UART")) return RP2040_UART_REGISTERS;
+    if (peripheralName === "SIO") return RP2040_SIO_REGISTERS;
+    return null;
+  }
+  if (platform === "nrf52") {
+    if (peripheralName.startsWith("UART")) return NRF52_UARTE_REGISTERS;
+    if (peripheralName === "P0" || peripheralName === "P1")
+      return NRF52_GPIO_REGISTERS;
+    return null;
+  }
   if (peripheralName.startsWith("USART") || peripheralName.startsWith("UART")) {
     return platform === "esp32" ? ESP32_UART_REGISTERS : STM32_USART_REGISTERS;
   }
@@ -651,6 +1136,15 @@ const resolveRegisterDefinitions = (
   if (peripheralName === "RCC" || peripheralName === "RCU") {
     if (platform === "stm32f4") return STM32F4_RCC_REGISTERS;
     return STM32F1_RCC_REGISTERS;
+  }
+  if (peripheralName.startsWith("TIM")) {
+    return STM32_TIM_REGISTERS;
+  }
+  if (peripheralName.startsWith("SPI")) {
+    return STM32_SPI_REGISTERS;
+  }
+  if (peripheralName.startsWith("I2C")) {
+    return STM32_I2C_REGISTERS;
   }
   return null;
 };

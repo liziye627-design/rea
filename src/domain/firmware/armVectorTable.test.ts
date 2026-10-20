@@ -88,6 +88,62 @@ describe("ARM Cortex-M vector table decoding", () => {
     expect(usart1?.executionAddress).toBe("0x8000300");
   });
 
+  it("decodes RP2040 vector table and resolves PIO, UART, and Timer IRQs", () => {
+    const buffer = new Uint8Array(64 * 4);
+    const view = new DataView(buffer.buffer);
+    view.setUint32(0, 0x20042000, true); // RP2040 SRAM top
+    view.setUint32(4, 0x10000101, true); // Reset_Handler in XIP Flash
+    view.setUint32(8, 0x10000111, true); // NMI
+    view.setUint32(12, 0x10000121, true); // HardFault
+    view.setUint32(23 * 4, 0x10000181, true); // IRQ 7: PIO0_IRQ_0
+    view.setUint32(36 * 4, 0x10000201, true); // IRQ 20: UART0_IRQ
+
+    const result = parseArmVectorTable(buffer, 0x10000000n, "rp2040");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const table = result.value;
+    expect(table.initialSp).toBe("0x20042000");
+    expect(table.resetHandler).toBe("0x10000100");
+
+    const pio0 = table.vectors.find((v) => v.name === "PIO0_IRQ_0");
+    expect(pio0?.associatedPeripheral).toBe("PIO0");
+    expect(pio0?.irqNumber).toBe(7);
+
+    const uart0 = table.vectors.find((v) => v.name === "UART0_IRQ");
+    expect(uart0?.associatedPeripheral).toBe("UART0");
+    expect(uart0?.irqNumber).toBe(20);
+  });
+
+  it("decodes Nordic nRF52 vector table and resolves RADIO and UARTE IRQs", () => {
+    const buffer = new Uint8Array(64 * 4);
+    const view = new DataView(buffer.buffer);
+    view.setUint32(0, 0x20010000, true); // nRF52 SRAM top
+    view.setUint32(4, 0x00000201, true); // Reset_Handler in Flash (0x0)
+    view.setUint32(8, 0x00000211, true); // NMI
+    view.setUint32(12, 0x00000221, true); // HardFault
+    view.setUint32(17 * 4, 0x00000301, true); // IRQ 1: RADIO_IRQHandler
+    view.setUint32(18 * 4, 0x00000351, true); // IRQ 2: UARTE0_UART0_IRQHandler
+
+    const result = parseArmVectorTable(buffer, 0x00000000n, "nrf52");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const table = result.value;
+    expect(table.initialSp).toBe("0x20010000");
+    expect(table.resetHandler).toBe("0x200");
+
+    const radio = table.vectors.find((v) => v.name === "RADIO_IRQHandler");
+    expect(radio?.associatedPeripheral).toBe("RADIO");
+    expect(radio?.irqNumber).toBe(1);
+
+    const uarte0 = table.vectors.find(
+      (v) => v.name === "UARTE0_UART0_IRQHandler",
+    );
+    expect(uarte0?.associatedPeripheral).toBe("UART0");
+    expect(uarte0?.irqNumber).toBe(2);
+  });
+
   it("rejects non-SRAM initial stack pointer values", () => {
     // Initial SP pointing to Flash rather than SRAM
     const data = buildVectorTableFixture({ initialSp: 0x08001000n });

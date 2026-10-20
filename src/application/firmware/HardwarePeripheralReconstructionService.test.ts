@@ -6,6 +6,7 @@ import {
 } from "./HardwarePeripheralReconstructionService.js";
 import type { AnalyzedInstructionReference } from "../../domain/firmware/hardwarePeripheralAttribution.js";
 import { parseArmVectorTable } from "../../domain/firmware/armVectorTable.js";
+import { parseRiscvTrapTable } from "../../domain/firmware/riscvTrapVector.js";
 import type {
   AnalysisExecution,
   AnalysisOperationPort,
@@ -135,7 +136,9 @@ describe("Hardware peripheral reconstruction from offline instruction references
     expect(report.detectedPlatforms[0]?.platform).toBe("stm32f1");
     expect(report.detectedPlatforms[0]?.confidence).toBe(1.0);
   });
+});
 
+describe("Hardware peripheral reconstruction with interrupt and trap tables", () => {
   it("resolves interrupt vector handler symbol name when vector table is provided", () => {
     const rawData = new Uint8Array(256 * 4);
     const view = new DataView(rawData.buffer);
@@ -155,16 +158,42 @@ describe("Hardware peripheral reconstruction from offline instruction references
       { target_address: "0x40013800", read: true },
     ];
 
-    const report = reconstructHardwareFromReferences(
-      references,
-      "arm",
-      "0x8000300",
-      "stm32f1",
-      vectorTableResult.value,
-    );
+    const report = reconstructHardwareFromReferences(references, "arm", {
+      procedure: "0x8000300",
+      platform: "stm32f1",
+      vectorTable: vectorTableResult.value,
+    });
 
     expect(report.vectorHandlerName).toBe("USART1_IRQHandler");
     expect(report.peripheralBlocks[0]?.socPeripheralName).toBe("USART1");
+  });
+
+  it("resolves RISC-V trap handler symbol name when trap table is provided", () => {
+    const rawData = new Uint8Array(16 * 4);
+    const view = new DataView(rawData.buffer);
+    view.setUint32(0, 0x80000200, true);
+    view.setUint32(7 * 4, 0x80000280, true); // Cause 7: Machine_Timer_Interrupt
+
+    const trapTableResult = parseRiscvTrapTable(
+      rawData,
+      0x80000000n,
+      "vectored",
+    );
+    expect(trapTableResult.ok).toBe(true);
+    if (!trapTableResult.ok) return;
+
+    const references: AnalyzedInstructionReference[] = [
+      { target_address: "0x60000000", read: true }, // UART0 on ESP32-C / RISC-V
+    ];
+
+    const report = reconstructHardwareFromReferences(references, "riscv", {
+      procedure: "0x80000280",
+      platform: "esp32",
+      trapTable: trapTableResult.value,
+    });
+
+    expect(report.vectorHandlerName).toBe("Machine_Timer_Interrupt");
+    expect(report.peripheralBlocks[0]?.socPeripheralName).toBe("UART0");
   });
 });
 
