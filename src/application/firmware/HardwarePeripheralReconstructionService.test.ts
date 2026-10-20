@@ -5,6 +5,7 @@ import {
   reconstructProcedureHardwareInteractions,
 } from "./HardwarePeripheralReconstructionService.js";
 import type { AnalyzedInstructionReference } from "../../domain/firmware/hardwarePeripheralAttribution.js";
+import { parseArmVectorTable } from "../../domain/firmware/armVectorTable.js";
 import type {
   AnalysisExecution,
   AnalysisOperationPort,
@@ -133,6 +134,37 @@ describe("Hardware peripheral reconstruction from offline instruction references
     expect(report.detectedPlatforms.length).toBeGreaterThanOrEqual(1);
     expect(report.detectedPlatforms[0]?.platform).toBe("stm32f1");
     expect(report.detectedPlatforms[0]?.confidence).toBe(1.0);
+  });
+
+  it("resolves interrupt vector handler symbol name when vector table is provided", () => {
+    const rawData = new Uint8Array(256 * 4);
+    const view = new DataView(rawData.buffer);
+    view.setUint32(0, 0x20005000, true);
+    view.setUint32(4, 0x08000141, true);
+    view.setUint32(53 * 4, 0x08000301, true); // IRQ 37: USART1_IRQHandler
+
+    const vectorTableResult = parseArmVectorTable(
+      rawData,
+      0x08000000n,
+      "stm32f1",
+    );
+    expect(vectorTableResult.ok).toBe(true);
+    if (!vectorTableResult.ok) return;
+
+    const references: AnalyzedInstructionReference[] = [
+      { target_address: "0x40013800", read: true },
+    ];
+
+    const report = reconstructHardwareFromReferences(
+      references,
+      "arm",
+      "0x8000300",
+      "stm32f1",
+      vectorTableResult.value,
+    );
+
+    expect(report.vectorHandlerName).toBe("USART1_IRQHandler");
+    expect(report.peripheralBlocks[0]?.socPeripheralName).toBe("USART1");
   });
 });
 

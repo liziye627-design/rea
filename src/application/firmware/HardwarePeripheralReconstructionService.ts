@@ -23,6 +23,10 @@ import {
   type SocPlatformMatchCandidate,
 } from "../../domain/firmware/socPeripheralDatabase.js";
 import {
+  type ArmVectorTable,
+  armVectorTableSchema,
+} from "../../domain/firmware/armVectorTable.js";
+import {
   AnalysisCancelledError,
   AnalysisInputError,
   AnalysisOutputError,
@@ -63,6 +67,11 @@ export const reconstructProcedureHardwareInputSchema = z.strictObject({
     .describe(
       "Optional explicit target SoC family (stm32f1, stm32f4, gd32f1, esp32) for device-specific register mapping",
     ),
+  vectorTable: armVectorTableSchema
+    .optional()
+    .describe(
+      "Optional decoded firmware vector table to identify procedure as a hardware interrupt handler",
+    ),
 });
 export type ReconstructProcedureHardwareInput = z.infer<
   typeof reconstructProcedureHardwareInputSchema
@@ -79,6 +88,7 @@ export interface HardwarePeripheralReconstruction {
   readonly procedure: string;
   readonly architecture: HardwareArchitecture;
   readonly platform: SocPlatform | null;
+  readonly vectorHandlerName?: string | null;
   readonly totalReferencesExamined: number;
   readonly mmioAccessCount: number;
   readonly nonMmioAccessCount: number;
@@ -92,6 +102,7 @@ export const hardwarePeripheralReconstructionSchema = z.strictObject({
   procedure: z.string(),
   architecture: hardwareArchitectureSchema,
   platform: socPlatformSchema.nullable().optional(),
+  vectorHandlerName: z.string().nullable().optional(),
   totalReferencesExamined: z.number().int().min(0),
   mmioAccessCount: z.number().int().min(0),
   nonMmioAccessCount: z.number().int().min(0),
@@ -149,6 +160,7 @@ export const reconstructHardwareFromReferences = (
   architecture: HardwareArchitecture,
   procedure = "detached",
   platform: SocPlatform | null = null,
+  vectorTable: ArmVectorTable | null = null,
 ): HardwarePeripheralReconstruction => {
   const attributions: HardwareAccessAttribution[] = [];
   const limitations: string[] = [];
@@ -214,10 +226,19 @@ export const reconstructHardwareFromReferences = (
       };
     });
 
+  const matchingVector = vectorTable?.vectors.find(
+    (v) =>
+      v.executionAddress.toLowerCase() === procedure.toLowerCase() ||
+      v.targetAddress.toLowerCase() === procedure.toLowerCase() ||
+      v.name.toLowerCase() === procedure.toLowerCase(),
+  );
+  const vectorHandlerName = matchingVector?.name ?? null;
+
   return {
     procedure,
     architecture,
     platform,
+    vectorHandlerName,
     totalReferencesExamined: summary.totalReferencesExamined,
     mmioAccessCount: summary.mmioAccessCount,
     nonMmioAccessCount: summary.nonMmioAccessCount,
@@ -253,7 +274,7 @@ export const reconstructProcedureHardwareInteractions = async (
     );
   }
 
-  const { procedure, architecture, platform } = parsed.data;
+  const { procedure, architecture, platform, vectorTable } = parsed.data;
 
   const execution = await analysis.execute(
     "procedure_references",
@@ -309,6 +330,7 @@ export const reconstructProcedureHardwareInteractions = async (
     architecture,
     procedure,
     platform ?? null,
+    vectorTable ?? null,
   );
 
   return ok(result);
