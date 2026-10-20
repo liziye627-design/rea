@@ -204,7 +204,7 @@ describe("Hardware peripheral interaction summarization", () => {
 });
 
 describe("SoC platform-specific peripheral attribution", () => {
-  it("attributes exact peripheral coordinates when an explicit SoC platform is provided", () => {
+  it("attributes exact peripheral coordinates and registers when an explicit SoC platform is provided", () => {
     const stm32Ref: AnalyzedInstructionReference = {
       target_address: "0x40010804",
       write: true,
@@ -216,6 +216,10 @@ describe("SoC platform-specific peripheral attribution", () => {
     expect(stm32Result.value.peripheralBlockOffset).toBe("0x4");
     expect(stm32Result.value.regionName).toBe("GPIOA (APB2)");
     expect(stm32Result.value.isMmio).toBe(true);
+    expect(stm32Result.value.registerMnemonic).toBe("GPIOA_CRH");
+    expect(stm32Result.value.registerName).toBe(
+      "GPIOA Port configuration register high",
+    );
 
     const esp32Ref: AnalyzedInstructionReference = {
       target_address: "0x3ff40000",
@@ -228,5 +232,32 @@ describe("SoC platform-specific peripheral attribution", () => {
     expect(esp32Result.value.peripheralBlockOffset).toBe("0x0");
     expect(esp32Result.value.regionName).toBe("UART0 (DPort)");
     expect(esp32Result.value.isMmio).toBe(true);
+    expect(esp32Result.value.registerMnemonic).toBe("UART0_FIFO");
+    expect(esp32Result.value.registerName).toBe("UART0 FIFO data register");
+  });
+
+  it("attributes serial USART baud rate and control registers and reflects in block summary", () => {
+    const references: AnalyzedInstructionReference[] = [
+      { target_address: "0x40013808", write: true }, // USART1_BRR
+      { target_address: "0x4001380c", write: true }, // USART1_CR1
+    ];
+
+    const attributions: HardwareAccessAttribution[] = [];
+    for (const ref of references) {
+      const res = attributeHardwareAccess(ref, "arm", "stm32f1");
+      if (res.ok) attributions.push(res.value);
+    }
+
+    expect(attributions[0]?.registerMnemonic).toBe("USART1_BRR");
+    expect(attributions[1]?.registerMnemonic).toBe("USART1_CR1");
+
+    const summary = summarizeHardwarePeripheralInteractions(
+      attributions,
+      "arm",
+    );
+    expect(summary.peripheralBlocks[0]?.knownRegisters).toEqual([
+      "USART1_BRR",
+      "USART1_CR1",
+    ]);
   });
 });

@@ -8,6 +8,7 @@ import {
   lookupSocPeripheral,
   type SocPlatform,
 } from "./socPeripheralDatabase.js";
+import { lookupSocPeripheralRegister } from "./socPeripheralRegisters.js";
 import { err, ok, type Result } from "../result.js";
 
 /** Minimal input reference contract representing an analyzed instruction reference. */
@@ -117,6 +118,10 @@ export const attributeHardwareAccess = (
 
   const accessKind = deriveAccessKind(reference.read, reference.write);
   const knownRegister = lookupHardwareRegister(canonicalAddress, architecture);
+  const socRegister =
+    platform != null
+      ? lookupSocPeripheralRegister(canonicalAddress, platform)
+      : null;
 
   return ok({
     targetAddress: canonicalAddress,
@@ -128,8 +133,8 @@ export const attributeHardwareAccess = (
     accessKind,
     peripheralBlockBase: `0x${blockBaseValue.toString(16)}`,
     peripheralBlockOffset: `0x${blockOffsetValue.toString(16)}`,
-    registerName: knownRegister?.name ?? null,
-    registerMnemonic: knownRegister?.mnemonic ?? null,
+    registerName: socRegister?.registerName ?? knownRegister?.name ?? null,
+    registerMnemonic: socRegister?.mnemonic ?? knownRegister?.mnemonic ?? null,
     sourceAddress: reference.source_address ?? null,
     operandIndex: reference.operand_index ?? null,
     provenance: reference.provenance ?? null,

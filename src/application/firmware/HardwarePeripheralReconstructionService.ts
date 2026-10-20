@@ -169,12 +169,7 @@ export const reconstructHardwareFromReferences = (
   const detectedPlatforms =
     platform === null ? detectSocPlatform(candidateAddresses) : [];
 
-  const activePlatform =
-    platform ??
-    (detectedPlatforms.length > 0 &&
-    (detectedPlatforms[0]?.confidence ?? 0) >= 0.5
-      ? detectedPlatforms[0]?.platform
-      : null);
+  const activePlatform = platform ?? null;
 
   for (const ref of references) {
     const attributed = attributeHardwareAccess(
