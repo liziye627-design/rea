@@ -171,3 +171,4 @@ export * from "./armVectorTable.js";
 export * from "./riscvTrapVector.js";
 export * from "./vectorTableLocator.js";
 export * from "./serialConfigDecoder.js";
+export * from "./gpioPinoutDecoder.js";
