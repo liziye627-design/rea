@@ -152,6 +152,9 @@ it("preserves rendered observation order instead of timestamp sorting", () => {
   });
 
   expect(result.rendered_frames).toEqual(renderedFrames);
+  expect(result.limitations).toContain(
+    "The target is the session leader of the capture PTY. When it exits, still-running processes in its foreground process group can receive SIGHUP from the terminal. That hangup is not REA cleanup; a child that should outlive the target must leave the group or ignore SIGHUP.",
+  );
 });
 
 it("marks redacted scripted input as an interaction unknown", () => {

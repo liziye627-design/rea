@@ -309,6 +309,8 @@ export const buildCaptureResult = (
   );
   const sensitiveInputUnknown =
     "Sensitive scripted input values are redacted from process capture Evidence.";
+  const sessionLeaderHangup =
+    "The target is the session leader of the capture PTY. When it exits, still-running processes in its foreground process group can receive SIGHUP from the terminal. That hangup is not REA cleanup; a child that should outlive the target must leave the group or ignore SIGHUP.";
   const filesystemObservationUnknown =
     "No filesystem observation paths were selected; filesystem effects remain unknown.";
   const hasFilesystemObservations =
@@ -363,6 +365,7 @@ export const buildCaptureResult = (
           ]
         : []),
       "Process trees are sampled and may omit short-lived descendants.",
+      sessionLeaderHangup,
       ...(options.samplingPartial
         ? ["Process-tree sampling ended with an incomplete observation."]
         : []),
