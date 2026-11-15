@@ -231,7 +231,38 @@ static Handle openRelative(HANDLE parent, const std::wstring& name, DWORD access
   return result;
 }
 
-static void verifyPrivate(HANDLE handle, const std::wstring& path, bool root) {
+static std::string bit(bool value) { return value ? "1" : "0"; }
+
+// `supplied` is the descriptor passed to creation. Reopen checks pass nullptr:
+// the creation descriptor is not available, so those flags stay unknown.
+static std::string daclReadback(PACL acl, SECURITY_DESCRIPTOR_CONTROL control, bool root,
+                                Security& policy, const Security* supplied) {
+  const bool observedPresent = acl != nullptr && (control & SE_DACL_PRESENT) != 0;
+  const bool observedProtected = (control & SE_DACL_PROTECTED) != 0;
+  const std::string aceCount = acl == nullptr ? "unknown" : std::to_string(acl->AceCount);
+  unsigned char* systemSid = policy.system.data();
+  const bool userIsSystem = EqualSid(policy.userSid(), systemSid) != FALSE;
+  std::string suppliedPresent = "unknown";
+  std::string suppliedProtected = "unknown";
+  if (supplied != nullptr) {
+    SECURITY_DESCRIPTOR_CONTROL suppliedControl{};
+    DWORD suppliedRevision = 0;
+    if (GetSecurityDescriptorControl(const_cast<SECURITY_DESCRIPTOR*>(&supplied->descriptor),
+                                    &suppliedControl, &suppliedRevision)) {
+      suppliedPresent = bit((suppliedControl & SE_DACL_PRESENT) != 0);
+      suppliedProtected = bit((suppliedControl & SE_DACL_PROTECTED) != 0);
+    }
+  }
+  return "observed_acl_present=" + bit(observedPresent) +
+         " observed_protected=" + bit(observedProtected) +
+         " observed_ace_count=" + aceCount +
+         " expected_present=1 expected_protected=" + (root ? "1" : "not_required") +
+         " supplied_present=" + suppliedPresent +
+         " supplied_protected=" + suppliedProtected +
+         " token_user_equals_system=" + bit(userIsSystem);
+}
+
+static void verifyPrivate(HANDLE handle, const std::wstring& path, bool root, const Security* supplied) {
   Security expected;
   PSID owner = nullptr;
   PACL acl = nullptr;
@@ -245,9 +276,11 @@ static void verifyPrivate(HANDLE handle, const std::wstring& path, bool root) {
   SECURITY_DESCRIPTOR_CONTROL control;
   DWORD revision;
   require(GetSecurityDescriptorControl(raw, &control, &revision), "Read DACL control flags failed", path);
-  require(acl != nullptr && (control & SE_DACL_PRESENT) != 0 && (!root || (control & SE_DACL_PROTECTED) != 0),
-          "Private object requires a present protected DACL", path, ERROR_ACCESS_DENIED);
-  require(acl->AceCount == 2, "Private DACL contains unexpected trustees", path, ERROR_ACCESS_DENIED);
+  const auto readback = daclReadback(acl, control, root, expected, supplied);
+  if (!(acl != nullptr && (control & SE_DACL_PRESENT) != 0 && (!root || (control & SE_DACL_PROTECTED) != 0)))
+    throw Failure("Private object requires a present protected DACL (" + readback + ")", path, ERROR_ACCESS_DENIED);
+  if (acl->AceCount != 2)
+    throw Failure("Private DACL contains unexpected trustees (" + readback + ")", path, ERROR_ACCESS_DENIED);
   bool user = false, system = false;
   for (DWORD index = 0; index < acl->AceCount; ++index) {
     void* rawAce;
@@ -261,9 +294,10 @@ static void verifyPrivate(HANDLE handle, const std::wstring& path, bool root) {
     PSID sid = const_cast<DWORD*>(&ace->SidStart);
     if (EqualSid(sid, expected.userSid())) user = true;
     else if (EqualSid(sid, expected.system.data())) system = true;
-    else throw Failure("Private DACL permits an unrelated principal", path, ERROR_ACCESS_DENIED);
+    else throw Failure("Private DACL permits an unrelated principal (" + readback + ")", path, ERROR_ACCESS_DENIED);
   }
-  require(user && system, "Private DACL must allow only current user and SYSTEM", path, ERROR_ACCESS_DENIED);
+  if (!(user && system))
+    throw Failure("Private DACL must allow only current user and SYSTEM (" + readback + ")", path, ERROR_ACCESS_DENIED);
 }
 
 static std::unique_ptr<File> openPrivateBridgeDirectory(const std::wstring& path) {
@@ -272,7 +306,7 @@ static std::unique_ptr<File> openPrivateBridgeDirectory(const std::wstring& path
   // inspection handle must share DELETE even though it requests no such right.
   auto directory = openFile(path, FILE_LIST_DIRECTORY, true,
                             FILE_SHARE_READ | FILE_SHARE_DELETE);
-  verifyPrivate(directory->get(), path, true);
+  verifyPrivate(directory->get(), path, true, nullptr);
   return directory;
 }
 
@@ -315,7 +349,7 @@ static Handle openPrivateBridgeDescriptor(HANDLE parent, const std::wstring& nam
           "Read Cutter bridge descriptor attributes failed", path);
   require((fileAttributes.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0,
           "Cutter bridge descriptor cannot be a reparse point", path, ERROR_REPARSE_TAG_INVALID);
-  verifyPrivate(descriptor.get(), path, false);
+  verifyPrivate(descriptor.get(), path, false, nullptr);
   return descriptor;
 }
 
@@ -390,7 +424,7 @@ void createRuntime(const std::wstring& parentPath, const std::wstring& prefix,
     // of admission validation. A failed validation must not retain a strict
     // parent lease that prevents renaming the still-owned child before retry.
     owner->parents.back() = openComponent(parent->path, 0, true, FILE_SHARE_READ | FILE_SHARE_WRITE);
-    verifyPrivate(owner->directory.get(), owner->path, true);
+    verifyPrivate(owner->directory.get(), owner->path, true, &security);
   } catch (Failure& primary) {
     cleanupFailedRuntime(owner, primary);
     throw;
@@ -436,17 +470,17 @@ static void directory(Runtime& root, const std::wstring& relative) {
   const auto path = relativePath(root, relative);
   const auto parentPath = path.substr(0, path.find_last_of(L'\\'));
   auto parent = runtimeDirectory(root, parentPath);
-  verifyPrivate(parent->get(), parentPath, parentPath == root.path);
+  verifyPrivate(parent->get(), parentPath, parentPath == root.path, nullptr);
   Security security;
   try {
     auto created = createRelative(parent->get(), path.substr(path.find_last_of(L'\\') + 1),
                                   FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | READ_CONTROL,
                                   true, security, path);
-    verifyPrivate(created.get(), path, false);
+    verifyPrivate(created.get(), path, false, &security);
   } catch (const Failure& failure) {
     if (failure.win32 != ERROR_ALREADY_EXISTS && failure.win32 != ERROR_FILE_EXISTS) throw;
     auto existing = runtimeDirectory(root, path);
-    verifyPrivate(existing->get(), path, false);
+    verifyPrivate(existing->get(), path, false, nullptr);
   }
 }
 
@@ -455,11 +489,11 @@ static Handle createPrivateFile(Runtime& root, const std::wstring& relative,
   const auto path = relativePath(root, relative);
   const auto parentPath = path.substr(0, path.find_last_of(L'\\'));
   auto parent = runtimeDirectory(root, parentPath);
-  verifyPrivate(parent->get(), parentPath, parentPath == root.path);
+  verifyPrivate(parent->get(), parentPath, parentPath == root.path, nullptr);
   Security security;
   auto file = createRelative(parent->get(), path.substr(path.find_last_of(L'\\') + 1),
                               access, false, security, path);
-  verifyPrivate(file.get(), path, false);
+  verifyPrivate(file.get(), path, false, &security);
   return file;
 }
 
@@ -500,7 +534,7 @@ static void disposeSnapshot(Runtime& root, Handle& file, const std::wstring& pat
           std::equal(std::begin(expected.FileId.Identifier), std::end(expected.FileId.Identifier),
                      std::begin(observed.FileId.Identifier)),
           "Incomplete snapshot identity changed before cleanup", path, ERROR_ACCESS_DENIED);
-  verifyPrivate(cleanup.get(), path, false);
+  verifyPrivate(cleanup.get(), path, false, nullptr);
   dispose(cleanup.get(), path);
 }
 
@@ -771,7 +805,7 @@ napi_value filesystemCall(napi_env env, const std::wstring& operation,
     require((info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0,
             "Reparse private file is unsupported", path, ERROR_NOT_SUPPORTED);
     file->handles.push_back(std::move(child));
-    verifyPrivate(file->get(), path, false);
+    verifyPrivate(file->get(), path, false, nullptr);
     auto result = identity(env, file->get(), path);
     set(env, result, "handle", wrap(env, std::move(file)));
     return result;

@@ -298,6 +298,12 @@ than treating missing data as proof of equivalence. Cancellation and timeout
 run the same owned-process cleanup path. Settlement reports whether the
 sampled process group quiesced or whether cleanup was needed or unverifiable;
 sampling cannot prove that every short-lived or detached descendant was seen.
+The captured command is the session leader of the capture PTY. When it exits,
+the terminal sends SIGHUP to processes that are still in its foreground process
+group, the same way `script -c <program>` does when the program itself is the
+session leader. That hangup is not REA cleanup, and a clean settlement does not
+show it. A child that should keep running has to leave the group, for example
+with `setsid`, or ignore SIGHUP. The capture result records this as a limitation.
 
 ### Finalization interval
 
