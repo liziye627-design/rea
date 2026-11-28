@@ -28,6 +28,7 @@ export const BINARY_ARCHITECTURES = [
   "arm64",
   "6502",
   "m68k",
+  "sh4",
 ] as const satisfies readonly BinaryArchitecture[];
 
 /** Provider-neutral CPU family for a caller-supplied raw-binary load. */
@@ -213,7 +214,8 @@ const addressWidth = (architecture: BinaryArchitecture): bigint =>
     ? 0xffffn
     : architecture === "x86" ||
         architecture === "arm" ||
-        architecture === "m68k"
+        architecture === "m68k" ||
+        architecture === "sh4"
       ? 0xffffffffn
       : 0xffffffffffffffffn;
 
@@ -282,7 +284,7 @@ export const admitRawBinary = (input: {
   const architecture = binaryArchitectureSchema.safeParse(input.architecture);
   if (!architecture.success)
     return selectionRejected(
-      "raw-binary format requires architecture (x86, x86_64, arm, arm64, 6502, or m68k)",
+      "raw-binary format requires architecture (x86, x86_64, arm, arm64, 6502, m68k, or sh4)",
       "architecture",
     );
   const variant = architectureVariantRow(input.architectureVariant);
@@ -351,10 +353,13 @@ export const admitRawBinary = (input: {
             }
           : undefined,
       );
-    // 68000-family instruction words are fetched from even addresses.
-    else if (architecture.data === "m68k" && entry.value % 2n !== 0n)
+    // 68000-family and SuperH-4 16-bit instruction words are fetched from even addresses.
+    else if (
+      (architecture.data === "m68k" || architecture.data === "sh4") &&
+      entry.value % 2n !== 0n
+    )
       return selectionRejected(
-        `raw-binary m68k entry_point ${entry.canonical} must be 2-byte aligned`,
+        `raw-binary ${architecture.data} entry_point ${entry.canonical} must be 2-byte aligned`,
         "entry_point",
       );
   }

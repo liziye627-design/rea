@@ -30,6 +30,13 @@ describe("raw-binary Ghidra language binding", () => {
       defaultAddressSpace: "ram",
     });
   });
+  it("maps the little-endian sh4 family to the default SuperH4 language", () => {
+    expect(ghidraRawBinaryLanguage("sh4")).toEqual({
+      languageId: "SuperH4:LE:32:default",
+      compilerSpecId: "default",
+      defaultAddressSpace: "ram",
+    });
+  });
   it("maps the four admitted families to little-endian generic languages", () => {
     expect(ghidraRawBinaryLanguage("x86")).toEqual({
       languageId: "x86:LE:32:default",

@@ -121,6 +121,12 @@ export const ghidraRawBinaryLanguage = (
         compilerSpecId: "default",
         defaultAddressSpace: "ram",
       };
+    case "sh4":
+      return {
+        languageId: "SuperH4:LE:32:default",
+        compilerSpecId: "default",
+        defaultAddressSpace: "ram",
+      };
     case "x86":
       return {
         languageId: "x86:LE:32:default",
@@ -149,7 +155,7 @@ export const ghidraRawBinaryLanguage = (
 };
 
 const GENERIC_RAW_LANGUAGES =
-  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
+  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, NMOS 6502, and sh4; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM and SH-4, the 65C02 and 65816, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
 
 /** Limitations that every result from a raw-binary session carries. */
 export const ghidraRawBinaryLimitations = (

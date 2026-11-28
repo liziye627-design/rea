@@ -67,6 +67,7 @@ const IDA_ARCHITECTURES = {
   riscv: "ghidra",
   powerpc: "ghidra",
   m68k: "unsupported",
+  sh4: "unsupported",
   hexagon: "ghidra",
   xtensa: "unsupported",
 } as const satisfies Record<

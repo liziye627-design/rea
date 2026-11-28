@@ -64,6 +64,7 @@ const KUNA_ARCHITECTURE_LABELS = {
   riscv: null,
   powerpc: null,
   m68k: null,
+  sh4: null,
   hexagon: null,
   xtensa: null,
 } as const satisfies Record<BinaryArchitecture, string | null>;

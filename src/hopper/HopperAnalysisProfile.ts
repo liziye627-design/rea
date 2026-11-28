@@ -216,6 +216,7 @@ const HOPPER_ARCHITECTURE_FLAGS = {
   riscv: null,
   powerpc: null,
   m68k: "raw-only",
+  sh4: "raw-only",
   hexagon: null,
   xtensa: null,
 } as const satisfies Record<BinaryArchitecture, string | null>;

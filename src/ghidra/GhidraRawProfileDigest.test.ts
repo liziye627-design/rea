@@ -46,6 +46,7 @@ const LEGACY_RAW_LOADS = [
   ["arm", "0x8000000"],
   ["arm64", "0x80000"],
   ["m68k", "0x1000"],
+  ["sh4", "0x8c010000"],
 ] as const;
 
 /** Keys only a load with a separate base or a variant commits. */

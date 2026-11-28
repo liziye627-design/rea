@@ -956,7 +956,7 @@ key `superseded`; encrypted NVS entries are not decrypted. See [ESP-IDF NVS part
 
 For other headerless images (embedded firmware without ELF/Mach-O/PE/MZ
 headers), open with `format: "raw-binary"`, `architecture` (`x86`, `x86_64`,
-`arm`, `arm64`, `6502`, or `m68k`), and `entry_point` (`0x` hex). File offset 0 is mapped at
+`arm`, `arm64`, `6502`, `m68k`, or `sh4`), and `entry_point` (`0x` hex). File offset 0 is mapped at
 that address. Hopper and IDA refuse this interpretation; Ghidra uses
 `BinaryLoader` with a generic language: big-endian for `m68k`, little-endian
 otherwise. For a Cortex-M dump, add `architecture_variant` (`armv6-m`,
@@ -975,7 +975,10 @@ superset of the 68000 family; Amiga/Atari containers and vector-table entry
 discovery are unsupported. A Mega Drive or Genesis ROM is a container:
 `inspect_artifact` reads its header, and an `.smd` dump is de-interleaved to
 `program.bin`. Open that file as raw-binary `m68k` with `entry_point` set to
-`rom.bus_start`, the 24-bit ROM start, usually `0x0`. Windows Ghidra P0 admits raw images only for `6502`. See [raw binary guide](https://github.com/morluto/rea/blob/main/docs/providers/raw-binary.md).
+`rom.bus_start`, the 24-bit ROM start, usually `0x0`. `sh4` selects little-endian
+SuperH-4 (`SuperH4:LE:32:default`), requires an even 32-bit entry (such as
+`0x8c010000` for an unscrambled Dreamcast boot binary), and does not interpret
+big-endian SH-4, `IP.BIN`, scrambled payloads, or P0–P4 area aliases. Windows Ghidra P0 admits raw images only for `6502`. See [raw binary guide](https://github.com/morluto/rea/blob/main/docs/providers/raw-binary.md).
 
 Intel HEX, S-record, UF2 and DfuSe files are containers, not raw images:
 `inspect_artifact` lists address regions (UF2 per familyID, DfuSe per element

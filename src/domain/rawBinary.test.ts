@@ -257,6 +257,64 @@ describe("m68k raw-binary admission", () => {
   );
 });
 
+describe("sh4 raw-binary admission", () => {
+  it("admits even sh4 entries up to the 32-bit address boundary", () => {
+    for (const [entryPoint, fileBytes] of [
+      ["0x0", 8],
+      ["0x8c010000", 36],
+      ["0xfffffffe", 2],
+    ] as const) {
+      const result = admitRawBinary({
+        architecture: "sh4",
+        entryPoint,
+        fileBytes,
+      });
+      if (!result.ok) throw new Error(result.error.reason);
+      expect(result.value).toEqual({
+        architecture: "sh4",
+        load: {
+          baseAddress: entryPoint,
+          entryPoint,
+          entrySource: { kind: "caller" },
+        },
+      });
+    }
+  });
+  it.each(["0x1", "0x8c010001", "0x8c010003", "0xffffffff"])(
+    "rejects the odd sh4 entry %s before provider selection",
+    (entryPoint) => {
+      expect(
+        admitRawBinary({ architecture: "sh4", entryPoint, fileBytes: 2 }),
+      ).toEqual({
+        ok: false,
+        error: {
+          reason: `raw-binary sh4 entry_point ${entryPoint} must be 2-byte aligned`,
+          constraint: "load_selection_rejected",
+          field: "entry_point",
+        },
+      });
+    },
+  );
+  it.each([
+    ["0x100000000", 2],
+    ["0xfffffffe", 4],
+  ])(
+    "rejects an sh4 mapping at %s with %i bytes that exceeds 32 bits",
+    (entryPoint, fileBytes) => {
+      expect(
+        admitRawBinary({ architecture: "sh4", entryPoint, fileBytes }),
+      ).toEqual({
+        ok: false,
+        error: {
+          reason: `raw-binary mapping from ${entryPoint} must fit in the sh4 address width`,
+          constraint: "load_selection_rejected",
+          field: "entry_point",
+        },
+      });
+    },
+  );
+});
+
 describe("raw-binary selection pairing", () => {
   it("requires architecture and entry with format=raw-binary", () => {
     expect(rawBinarySelectionError({ format: "raw-binary" })).toEqual({
@@ -294,9 +352,10 @@ describe("raw-binary admission results", () => {
   // spelling, which the admitted load no longer keeps. Changing how the load
   // is represented must not change any accepted value, refusal reason or
   // constraint. First computed at d6f88becd (930f0a2a9fbab817…); recomputed
-  // after main's #10683 added the Thumb note to odd ARM entry refusals.
+  // after #10683 added the Thumb note to odd ARM entry refusals and #3532
+  // added sh4 to the architecture refusal text.
   const ADMISSION_GRID_SHA256 =
-    "ccc75843c2abfca5c4eb3dc192dbb2534361a8e760a9e8dc58f1b3c28fadbd65";
+    "9580288016adebfd846fa30e33f5d23725d640e9d2044f7ec13109d1d8234c24";
   // The pairing grid also covers esp-flash-image (#8228); its other 16 rows
   // still hash to d6f88becd's b6447afda4012589….
   const PAIRING_GRID_SHA256 =
@@ -395,7 +454,7 @@ describe("raw-binary admission results", () => {
 });
 
 describe("raw-binary base address admission", () => {
-  it.each(["x86", "arm", "m68k", "6502"] as const)(
+  it.each(["x86", "arm", "m68k", "sh4", "6502"] as const)(
     "refuses a %s base_address without architecture_variant",
     (architecture) => {
       expect(

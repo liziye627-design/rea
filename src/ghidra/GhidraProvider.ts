@@ -111,6 +111,7 @@ const GHIDRA_ARCHITECTURES = {
   riscv: true,
   powerpc: true,
   m68k: true,
+  sh4: true,
   hexagon: true,
   xtensa: true,
 } as const satisfies Record<BinaryArchitecture, boolean>;
