@@ -537,6 +537,44 @@ describe("Ghidra provider", () => {
       code: "target_format_unsupported",
     });
   });
+  it("admits raw-binary 8051 targets on POSIX and refuses them on Windows P0", async () => {
+    const target: BinaryTarget = {
+      path: "/tmp/mcs51_rom.bin",
+      sha256: "a".repeat(64),
+      kind: "executable",
+      format: "raw-binary",
+      architecture: "8051",
+      availableArchitectures: ["8051"],
+      rawLoad: {
+        baseAddress: "0x0",
+        entryPoint: "0x0",
+        entrySource: { kind: "caller" },
+      },
+    };
+    const ghidra = provider();
+    expect(ghidra.inspectTargetSupport(target)).toMatchObject({
+      status: "supported",
+    });
+    const resolved = await ghidra.resolveAnalysisProfile(target);
+    expect(resolved.ok && resolved.value).toMatchObject({
+      profile: {
+        parameters: {
+          target_format: "raw-binary",
+          architecture: "8051",
+          loader: "BinaryLoader",
+          language_id: "8051:BE:16:default",
+          compiler_spec_id: "default",
+          language_selection: "caller-supplied",
+          entry_point: "0x0",
+        },
+      },
+    });
+    const windows = provider(installationHost("win32"));
+    expect(windows.inspectTargetSupport(target)).toMatchObject({
+      status: "unsupported",
+      code: "target_format_unsupported",
+    });
+  });
   it("re-observes the exact installation for each fresh task without launching Ghidra", async () => {
     let probeCount = 0;
     const host: GhidraInstallationHost = {
@@ -785,6 +823,7 @@ describe("Ghidra Mach-O slice support", () => {
         "hexagon",
         "xtensa",
         "6502",
+        "8051",
         "m68k",
       ]),
     );

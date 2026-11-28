@@ -34,12 +34,12 @@ The example maps a 32-bit ARM-state image at `0x8000`. For `arm`, decoding
 starts at the entry in ARM (A32) state, so Thumb-only images, including Cortex-M
 firmware, are not supported. See [Limitations](#limitations).
 
-`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, `6502`, or `m68k`. `entry_point` is a
+`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, `6502`, `8051`, or `m68k`. `entry_point` is a
 hexadecimal address of the form `0x…`. The complete file is mapped starting at
 that address, and Ghidra seeds an `entry` function there before auto-analysis.
 ARM and AArch64 entries must be 4-byte aligned; m68k entries must be 2-byte
-aligned; x86 and 6502 entries may be byte-aligned.
-For 6502, the entry and complete mapped file must fit within `0x0000..0xffff`;
+aligned; x86, 6502, and 8051 entries may be byte-aligned.
+For 6502 and 8051, the entry and complete mapped file must fit within `0x0000..0xffff`;
 images that cross the 16-bit boundary are rejected before provider startup.
 For m68k, the mapping must fit within `0x0..0xffffffff`.
 `open_binary` and an open `binary_session` return the canonical `entry_point`
@@ -49,7 +49,7 @@ Omitted `format` keeps header-based detection; architecture and entry without
 
 Ghidra imports a private snapshot with `BinaryLoader` and these generic
 languages and compiler specifications. Each family has one fixed byte order:
-m68k is big-endian and the others are little-endian.
+8051 and m68k are big-endian and the others are little-endian.
 
 | architecture | language_id           | compiler_spec_id |
 | ------------ | --------------------- | ---------------- |
@@ -58,6 +58,7 @@ m68k is big-endian and the others are little-endian.
 | arm          | `ARM:LE:32:v7`        | `default`        |
 | arm64        | `AARCH64:LE:64:v8A`   | `default`        |
 | 6502         | `6502:LE:16:default`  | `default`        |
+| 8051         | `8051:BE:16:default`  | `default`        |
 | m68k         | `68000:BE:32:default` | `default`        |
 
 Compiler specifications select analysis conventions; they do not identify the
@@ -264,6 +265,30 @@ unchanged source bytes and complete runtime cleanup. Windows requires the
 matching native addon; the POSIX provider path has not been exercised by the
 Windows run.
 
+## Intel MCS-51 / 8051
+
+```bash
+rea function /absolute/path/to/rom.bin 0x0 --target-format raw-binary --architecture 8051 --entry-point 0x0 --provider ghidra --json
+rea inspect-native-load-image /absolute/path/to/rom.bin --target-format raw-binary --architecture 8051 --entry-point 0x0 --provider ghidra --json
+```
+
+Select headerless Intel MCS-51 / 8051 code with a known byte-aligned entry in
+the 16-bit Harvard `CODE` space (`0x0000..0xffff`). Ghidra's
+`8051:BE:16:default` language maps the file into `CODE` memory and decodes
+big-endian 16-bit `LJMP`/`LCALL` branch targets. On standard 8051 hardware,
+reset begins at `0x0000`, followed by fixed interrupt vectors at `0x0003`
+(`IE0`), `0x000b` (`TF0`), `0x0013` (`IE1`), `0x001b` (`TF1`), and `0x0023`
+(`RI`/`TI`). Evidence preserves `architecture: "8051"`, the selected language,
+entry, file digest, and verified `CODE`-space source mapping.
+
+Separate Harvard `INTMEM`, `SFR`, `BITS`, and `EXTMEM` (`XDATA`) spaces are not
+populated from file bytes; processor-defined uninitialized blocks remain
+observations rather than file-backed mappings. 24-bit banked 8051 extensions
+(`MX51`, Dallas DS80C390), bank-switching firmware overlays, and Keil OMF-51
+containers are out of scope. For Intel HEX (`.hex`) or Motorola S-record files,
+extract the region first with `extract_artifact`. Windows Ghidra P0 does not
+admit 8051.
+
 ## Motorola 68000
 
 ```bash
@@ -296,9 +321,10 @@ not been exercised.
 
 - Headers are not discovered from file bytes. REA does not guess load
   addresses, profiles, vector-table locations, or memory maps.
-- Big-endian ARM is unsupported, and m68k is the only big-endian family.
+- Big-endian ARM is unsupported; 8051 and m68k use big-endian Ghidra languages
+  and the other families are little-endian.
   `architecture_variant` names only the ARM M profiles; no other processor of a
-  family, such as the 65C02 or ColdFire, can be selected.
+  family, such as the 65C02, MX51, or ColdFire, can be selected.
 - An M-profile load maps one segment: the file at its base. SRAM, peripheral and
   system blocks are not created, and only the Reset vector is read. Ghidra's
   processor-defined vector labels are not applied, so other vectors are neither

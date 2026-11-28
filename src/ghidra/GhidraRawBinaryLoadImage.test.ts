@@ -23,11 +23,16 @@ import {
 } from "../domain/rawBinary.fixture.js";
 
 describe("raw-binary Ghidra language binding", () => {
-  it("maps the big-endian m68k family to the default 68000 language", () => {
+  it("maps the big-endian m68k and 8051 families to their default languages", () => {
     expect(ghidraRawBinaryLanguage("m68k")).toEqual({
       languageId: "68000:BE:32:default",
       compilerSpecId: "default",
       defaultAddressSpace: "ram",
+    });
+    expect(ghidraRawBinaryLanguage("8051")).toEqual({
+      languageId: "8051:BE:16:default",
+      compilerSpecId: "default",
+      defaultAddressSpace: "CODE",
     });
   });
   it("maps the four admitted families to little-endian generic languages", () => {
@@ -133,6 +138,44 @@ describe("raw-binary mapped-block state", () => {
               expected: "RAM",
               observed: space,
               matched: space === "RAM",
+            }),
+          ]),
+        },
+      });
+    },
+  );
+  it.each(["CODE", "RAM", "ram"])(
+    "requires the bound 8051 CODE address space for %s observations",
+    (space) => {
+      const f = fixtureRawBinaryLoadImage();
+      const target = {
+        ...f.target,
+        architecture: "8051" as const,
+        availableArchitectures: ["8051" as const],
+        rawLoad: rawLoadAtEntry("0x0"),
+      };
+      f.observation.language_id = "8051:BE:16:default";
+      f.observation.default_address_space = space;
+      f.observation.entry_points = [target.rawLoad.entryPoint];
+      const mapping = f.observation.mappings[0];
+      if (mapping === undefined)
+        throw new Error("Missing source mapping fixture");
+      mapping.start = target.rawLoad.baseAddress;
+      mapping.end = "0x3";
+      mapping.address_space = space;
+      expect(
+        attestGhidraRawBinaryLoadImage(f.snapshot, target, f.observation),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          status: space === "CODE" ? "verified" : "mismatch",
+          language_id: "8051:BE:16:default",
+          checks: expect.arrayContaining([
+            expect.objectContaining({
+              name: "default_address_space",
+              expected: "CODE",
+              observed: space,
+              matched: space === "CODE",
             }),
           ]),
         },

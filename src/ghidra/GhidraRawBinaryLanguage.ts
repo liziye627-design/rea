@@ -12,7 +12,7 @@ import {
 export interface GhidraRawBinaryLanguage {
   readonly languageId: string;
   readonly compilerSpecId: "default" | "gcc";
-  readonly defaultAddressSpace: "ram" | "RAM";
+  readonly defaultAddressSpace: "ram" | "RAM" | "CODE";
 }
 
 /**
@@ -92,7 +92,7 @@ export const ghidraVariantProcessorLabels = (
  * Map caller-visible CPU families to generic Ghidra languages with a
  * supported generic compiler specification. These are analysis conventions,
  * not evidence of the target's original compiler. Each family has one fixed
- * byte order: m68k is big-endian and the others are little-endian. A
+ * byte order: 8051 and m68k are big-endian and the others are little-endian. A
  * caller-named variant selects its own decoder instead of the generic one;
  * big-endian ARM and unnamed processor variants are out of scope.
  */
@@ -112,6 +112,14 @@ export const ghidraRawBinaryLanguage = (
         languageId: "6502:LE:16:default",
         compilerSpecId: "default",
         defaultAddressSpace: "RAM",
+      };
+    case "8051":
+      // Intel MCS-51 LJMP/LCALL 16-bit target addresses are encoded big-endian
+      // in Harvard CODE memory (`8051.ldefs` and `8051_main.sinc`).
+      return {
+        languageId: "8051:BE:16:default",
+        compilerSpecId: "default",
+        defaultAddressSpace: "CODE",
       };
     case "m68k":
       // Ghidra's default 68000 language decodes the 68040 superset; no
@@ -149,7 +157,7 @@ export const ghidraRawBinaryLanguage = (
 };
 
 const GENERIC_RAW_LANGUAGES =
-  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
+  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; 8051 uses the big-endian MCS-51 CODE-space language, and m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, 24-bit banked 8051 extensions (MX51/DS80C390), and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
 
 /** Limitations that every result from a raw-binary session carries. */
 export const ghidraRawBinaryLimitations = (
