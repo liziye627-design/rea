@@ -33,10 +33,12 @@ undefined. Installation `application.properties` has a fixed 1 MiB read allowanc
 with no runtime override. The failure retains that allowance and directs recovery
 at the selected installation metadata.
 
-Xtensa ELF files (`EM_XTENSA = 94`) use the header-selected Ghidra import
-language and report the canonical `xtensa` architecture in CLI/MCP results.
-Processor extensions and calling-convention compatibility remain specific to
-the selected Ghidra language; family recognition alone does not establish them.
+Xtensa ELF files (`EM_XTENSA = 94`) and ELF32 little-endian Renesas V850 / RH850
+files (`EM_V800 = 36`, `EM_V850 = 87`) use the header-selected Ghidra import
+language and report the canonical `xtensa` or `v850` architecture in CLI/MCP
+results. Processor extensions (including `e_flags`-selected RH850 `v850e3v5`)
+and calling-convention compatibility remain specific to the selected Ghidra
+language; family recognition alone does not establish them.
 
 Retained process diagnostics can report termination by `SIGKILL`; the signal alone
 cannot establish an OOM kill. REA gives neutral recovery guidance and preserves the

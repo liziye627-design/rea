@@ -24,6 +24,8 @@ describe("executable header parsing", () => {
     [elf(2, 2, 183), "elf", "arm64"],
     [elf(1, 1, 164), "elf", "hexagon"],
     [elf(1, 1, 94), "elf", "xtensa"],
+    [elf(1, 1, 36), "elf", "v850"],
+    [elf(1, 1, 87), "elf", "v850"],
     [thinMach(0xfeedfacf, 0x0100000c), "mach-o", "arm64"],
     [thinMach(0xcefaedfe, 0x01000007), "mach-o", "x86_64"],
     [thinMach(0xcefaedfe, 0x0200000c), "mach-o", "arm64_32"],
@@ -108,6 +110,11 @@ describe("executable header parsing", () => {
   it.each([
     Buffer.alloc(0),
     Buffer.from([0x7f, 0x45, 0x4c, 0x46]),
+    // EM_V800 (36) and EM_V850 (87) are ELF32 little-endian in Ghidra V850.opinion.
+    elf(2, 1, 36),
+    elf(1, 2, 36),
+    elf(2, 1, 87),
+    elf(1, 2, 87),
     fat([], 2),
     // A FAT table declaring only unsupported CPU types has nothing to select.
     fat([0x00000012]),
