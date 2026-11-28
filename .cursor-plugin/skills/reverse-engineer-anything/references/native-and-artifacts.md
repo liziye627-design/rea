@@ -947,7 +947,13 @@ ComLoader rejects records `loader: "BinaryLoader"`, `load_address: "1000:0100"`
 (linear `0x10100`), and `loader_fallback.reason`. Segment context is imposed for
 analysis. PSP contents, stack, and device state remain unmodeled. See [DOS guide](https://github.com/morluto/rea/blob/main/docs/providers/ghidra-dos.md).
 
-Use `inspect_byte_entropy` to triage high- and low-entropy ranges before extraction.
+Use `inspect_byte_entropy` to triage high- and low-entropy ranges before extraction,
+and `inspect_firmware_vector_table` (`rea inspect-firmware-vector-table PATH --architecture ARCH --base-address HEX`)
+to decode ARM M-profile exception/IRQ tables for the raw-image variant names
+(`armv6-m` through `armv8.1-m.main`)
+or RISC-V `mtvec` jump slots, flag clear Thumb bit-0 anomalies and shared dummy
+handlers, and optionally bind CMSIS-SVD `<interrupt>` names via `svd_xml`.
+See [firmware vector tables](https://github.com/morluto/rea/blob/main/docs/guides/firmware/firmware-vector-tables.md).
 For ESP32/ESP8266 flash dumps or carved `partitions/nvs.bin` files (`esp-nvs`), use
 `inspect_esp_nvs` (`rea inspect-esp-nvs PATH [--partition-offset N] [--partition-bytes N]`)
 to decode ESP-IDF v1/v2 Non-Volatile Storage pages, CRC32 checksums, namespaces,
@@ -956,7 +962,7 @@ key `superseded`; encrypted NVS entries are not decrypted. See [ESP-IDF NVS part
 
 For other headerless images (embedded firmware without ELF/Mach-O/PE/MZ
 headers), open with `format: "raw-binary"`, `architecture` (`x86`, `x86_64`,
-`arm`, `arm64`, `6502`, or `m68k`), and `entry_point` (`0x` hex). File offset 0 is mapped at
+`arm`, `arm64`, `6502`, `m68k`, or `sh4`), and `entry_point` (`0x` hex). File offset 0 is mapped at
 that address. Hopper and IDA refuse this interpretation; Ghidra uses
 `BinaryLoader` with a generic language: big-endian for `m68k`, little-endian
 otherwise. For a Cortex-M dump, add `architecture_variant` (`armv6-m`,
@@ -975,7 +981,10 @@ superset of the 68000 family; Amiga/Atari containers and vector-table entry
 discovery are unsupported. A Mega Drive or Genesis ROM is a container:
 `inspect_artifact` reads its header, and an `.smd` dump is de-interleaved to
 `program.bin`. Open that file as raw-binary `m68k` with `entry_point` set to
-`rom.bus_start`, the 24-bit ROM start, usually `0x0`. Windows Ghidra P0 admits raw images only for `6502`. See [raw binary guide](https://github.com/morluto/rea/blob/main/docs/providers/raw-binary.md).
+`rom.bus_start`, the 24-bit ROM start, usually `0x0`. `sh4` selects little-endian
+SuperH-4 (`SuperH4:LE:32:default`), requires an even 32-bit entry (such as
+`0x8c010000` for an unscrambled Dreamcast boot binary), and does not interpret
+big-endian SH-4, `IP.BIN`, scrambled payloads, or P0–P4 area aliases. Windows Ghidra P0 admits raw images only for `6502`. See [raw binary guide](https://github.com/morluto/rea/blob/main/docs/providers/raw-binary.md).
 
 Intel HEX, S-record, UF2 and DfuSe files are containers, not raw images:
 `inspect_artifact` lists address regions (UF2 per familyID, DfuSe per element
@@ -1172,6 +1181,16 @@ program header hash offsets) but still resolve as ELF for native analysis.
 Signatures and certificates are located, not verified; hashes are not
 recomputed. See
 [Qualcomm MBN images](https://github.com/morluto/rea/blob/main/docs/guides/firmware/qualcomm-mbn-images.md).
+
+Image4 firmware containers (`IMG4`, `IM4P`, `IM4M`) use the same inspection
+and extraction workflows. Recognition is the DER SEQUENCE magic, not the
+filename. `payload` is the stored octet string. `manifest.der` and
+`restore-info.der` are the embedded IM4M and IM4R sequences. Keybags are
+reported as a count and key types; nothing is decrypted, and an encrypted
+payload is refused on open. Signatures and certificates are sized and not
+checked. LZFSE (`bvx2`, `bvx1`, `bvxn`, `bvx-`) and `complzss` payloads stay compressed. IM4R property names
+such as `BNCN` are listed and their values stay redacted. See
+[Image4 containers](https://github.com/morluto/rea/blob/main/docs/guides/apple/image4-containers.md).
 
 Android A/B OTA `payload.bin` files (CrAU v2) use the same
 inspection/extraction workflows. Prefer a retained summary for header,
