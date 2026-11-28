@@ -954,6 +954,13 @@ to decode ARM M-profile exception/IRQ tables for the raw-image variant names
 or RISC-V `mtvec` jump slots, flag clear Thumb bit-0 anomalies and shared dummy
 handlers, and optionally bind CMSIS-SVD `<interrupt>` names via `svd_xml`.
 See [firmware vector tables](https://github.com/morluto/rea/blob/main/docs/guides/firmware/firmware-vector-tables.md).
+For RISC-V (`riscv32`/`riscv64`), MIPS32 (`mips32le`/`mips32be`), PowerPC (`ppc32be`),
+or bare-metal ARM64 (`arm64`) firmware images, use `inspect_firmware_mmio_synthesis`
+(`rea inspect-firmware-mmio-synthesis PATH --architecture ARCH --base-address HEX`)
+to disassemble split-immediate register pairs (`LUI`/`AUIPC`/`C.LUI`, `LUI` + `ORI`/`ADDIU`,
+`LIS` + `ORI`/`ADDI`, `ADRP` + `ADD`/load/store), map MIPS `KSEG1` virtual addresses to
+physical offsets, and bind optional CMSIS-SVD `<peripheral>` and `<register>` names.
+See [firmware split-immediate MMIO disassembly](https://github.com/morluto/rea/blob/main/docs/guides/firmware/firmware-mmio-synthesis.md).
 For ESP32/ESP8266 flash dumps or carved `partitions/nvs.bin` files (`esp-nvs`), use
 `inspect_esp_nvs` (`rea inspect-esp-nvs PATH [--partition-offset N] [--partition-bytes N]`)
 to decode ESP-IDF v1/v2 Non-Volatile Storage pages, CRC32 checksums, namespaces,

@@ -5,7 +5,12 @@ import {
 import { binaryLayoutSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/binaryLayoutSummarySchema.js";
 import { devicetreeSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/devicetreeSummarySchema.js";
 import { espNvsSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/espNvsSummarySchema.js";
+import { firmwareMmioSynthesisSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/firmwareMmioSynthesisSummarySchema.js";
 import { firmwareVectorTableSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/firmwareVectorTableSummarySchema.js";
+import {
+  firmwareMmioSynthesisSchema,
+  inspectFirmwareMmioSynthesisInputSchema,
+} from "../../domain/firmware/firmwareMmioSynthesis.js";
 import { elfDependenciesSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/elfDependenciesSummarySchema.js";
 import { nativeExportsSummaryViewResultSchema } from "../../domain/analysisView/summarySchemas/nativeExportsSummarySchema.js";
 import {
@@ -658,6 +663,40 @@ export const BINARY_DIAGNOSTICS_TOOL_CONTRACTS = [
           path: "/artifacts/firmware.bin",
           architecture: "armv7-m",
           base_address: "0x08000000",
+          detail: "summary",
+        },
+      },
+    ],
+  },
+  {
+    name: "inspect_firmware_mmio_synthesis",
+    cli: true,
+    ...toolContractMetadata("inspect_firmware_mmio_synthesis", evidenceEffects),
+    kind: "native-provider",
+    description:
+      "Disassemble split-immediate MMIO peripheral register accesses and base-address materializations across RISC-V (riscv32/riscv64 LUI/AUIPC/C.LUI + ADDI/C.ADDI/load/store), MIPS32 (mips32le/mips32be LUI + ORI/ADDIU/load/store with KSEG1 physical translation and branch delay slots), PowerPC (ppc32be LIS + ORI/ADDI/load/store), and ARM64 (arm64 ADRP + ADD/unsigned-offset load/store) from a local firmware image at an explicit base_address and optional scan_offset without executing code or opening a session. Groups synthesized accesses by peripheral base, distinguishes loads/stores/address materializations, and optionally binds CMSIS-SVD <peripheral> and <register> declarations supplied in svd_xml within max_svd_xml_nodes and max_svd_expanded_chars. Complete detail returns all synthesized items inline; summary (or omitted detail over the agent result budget) retains complete Evidence for inspect_analysis_view kind firmware-mmio-synthesis (collections syntheses, peripheral_groups, anomalies) or evidence-json.",
+    inputSchema: inspectFirmwareMmioSynthesisInputSchema.extend({
+      detail: analysisDetailSchema,
+    }),
+    outputSchema: analysisDetailOutputSchemaOf(
+      firmwareMmioSynthesisSchema,
+      firmwareMmioSynthesisSummaryViewResultSchema,
+    ),
+    examples: [
+      {
+        title: "Disassemble RISC-V RV32IMC split-immediate MMIO accesses",
+        input: {
+          path: "/artifacts/riscv_firmware.bin",
+          architecture: "riscv32",
+          base_address: "0x08000000",
+        },
+      },
+      {
+        title: "Retain MIPS32 KSEG1 MMIO syntheses and return bounded summary",
+        input: {
+          path: "/artifacts/router_bootloader.bin",
+          architecture: "mips32be",
+          base_address: "0xbfc00000",
           detail: "summary",
         },
       },

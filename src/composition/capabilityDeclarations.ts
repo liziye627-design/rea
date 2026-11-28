@@ -57,6 +57,7 @@ import {
   PE_RESOURCES_PROVIDER,
   RELEASE_EXPOSURE_PROVIDER,
   ESP_NVS_PROVIDER,
+  FIRMWARE_MMIO_SYNTHESIS_PROVIDER,
   FIRMWARE_VECTOR_TABLE_PROVIDER,
   WEB_SCRIPT_EXPORT_PROVIDER,
   WINDOWS_SHORTCUT_PROVIDER,
@@ -329,6 +330,13 @@ export const CAPABILITY_DECLARATIONS = {
   },
   espNvs: {
     providers: [providerBinding(ESP_NVS_PROVIDER, ["inspect_esp_nvs"])],
+  },
+  firmwareMmioSynthesis: {
+    providers: [
+      providerBinding(FIRMWARE_MMIO_SYNTHESIS_PROVIDER, [
+        "inspect_firmware_mmio_synthesis",
+      ]),
+    ],
   },
   firmwareVectorTable: {
     providers: [

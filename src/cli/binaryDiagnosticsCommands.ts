@@ -693,4 +693,61 @@ export const registerBinaryDiagnosticsCommands = (
       "rea-firmware-vector-table",
     ),
   );
+  registerContractCommand(
+    cli,
+    logger,
+    contract("inspect_firmware_mmio_synthesis"),
+    {
+      description:
+        "Disassemble RISC-V, MIPS32, PowerPC, or ARM64 split-immediate MMIO peripheral accesses without executing code",
+      positionals: ["path"],
+      callerPaths: ["path"],
+      evidenceDelivery: true,
+      fields: {
+        path: { description: "Local bare-metal firmware binary or flash dump" },
+        architecture: {
+          description:
+            "Instruction set: riscv32, riscv64, mips32le, mips32be, ppc32be, or arm64",
+        },
+        base_address: {
+          description: "Hex load base address for file offset 0",
+        },
+        scan_offset: {
+          description: "Instruction-aligned byte offset where scanning begins",
+        },
+        max_scan_bytes: {
+          description: "Maximum instruction stream bytes to scan",
+        },
+        max_syntheses: {
+          description: "Maximum split-immediate syntheses to return",
+        },
+        max_window_instructions: {
+          description: "Forward instruction tracking window after high-half op",
+        },
+        mmio_only: {
+          description:
+            "Filter out non-MMIO RAM/Flash syntheses unless matched by svd_xml",
+        },
+        svd_xml: {
+          description:
+            "Optional CMSIS-SVD XML text for peripheral and register names",
+        },
+        max_svd_xml_nodes: {
+          description: "Maximum XML nodes admitted when parsing svd_xml",
+        },
+        max_svd_expanded_chars: {
+          description:
+            "Maximum cumulative CMSIS-SVD peripheral/register characters",
+        },
+        max_file_bytes: { description: "Maximum input file size in bytes" },
+      },
+    },
+    deliverWithService(
+      async () =>
+        (
+          await import("../composition/binaryDiagnostics/firmwareMmioSynthesis.js")
+        ).createFirmwareMmioSynthesisService(),
+      "rea-firmware-mmio-synthesis",
+    ),
+  );
 };

@@ -439,6 +439,11 @@ export const documentationSections = [
         route: "/firmware-vector-tables",
       },
       {
+        text: "Firmware split-immediate MMIO disassembly",
+        source: "guides/firmware/firmware-mmio-synthesis.md",
+        route: "/firmware-mmio-synthesis",
+      },
+      {
         text: "Android OTA update payloads",
         source: "guides/firmware/android-ota-payload.md",
         route: "/android-ota-payload",

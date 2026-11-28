@@ -72,6 +72,11 @@ import {
   espNvsViewRequestSchema,
 } from "./espNvsView.js";
 import {
+  firmwareMmioSynthesisPageContextSchema,
+  firmwareMmioSynthesisViewItemsSchema,
+  firmwareMmioSynthesisViewRequestSchema,
+} from "./firmwareMmioSynthesisView.js";
+import {
   firmwareVectorTablePageContextSchema,
   firmwareVectorTableViewItemsSchema,
   firmwareVectorTableViewRequestSchema,
@@ -239,6 +244,7 @@ import { dartAotSummaryViewResultSchema } from "./summarySchemas/dartAotSummaryS
 import { desktopApplicationSummaryViewResultSchema } from "./summarySchemas/desktopApplicationSummarySchema.js";
 import { devicetreeSummaryViewResultSchema } from "./summarySchemas/devicetreeSummarySchema.js";
 import { espNvsSummaryViewResultSchema } from "./summarySchemas/espNvsSummarySchema.js";
+import { firmwareMmioSynthesisSummaryViewResultSchema } from "./summarySchemas/firmwareMmioSynthesisSummarySchema.js";
 import { firmwareVectorTableSummaryViewResultSchema } from "./summarySchemas/firmwareVectorTableSummarySchema.js";
 import { labviewArtifactSummaryViewResultSchema } from "./summarySchemas/labviewArtifactSummarySchema.js";
 import {
@@ -370,6 +376,7 @@ export {
   desktopApplicationSummaryViewResultSchema,
   devicetreeSummaryViewResultSchema,
   espNvsSummaryViewResultSchema,
+  firmwareMmioSynthesisSummaryViewResultSchema,
   firmwareVectorTableSummaryViewResultSchema,
   labviewArtifactSummaryViewResultSchema,
   elfDependenciesSummaryViewResultSchema,
@@ -451,6 +458,7 @@ const viewResultBase = {
     "inspect_erlang_beam",
     "inspect_devicetree",
     "inspect_esp_nvs",
+    "inspect_firmware_mmio_synthesis",
     "inspect_firmware_vector_table",
     "inspect_labview_artifact",
     "inspect_byte_entropy",
@@ -815,6 +823,7 @@ export const analysisViewResultSchema = z.discriminatedUnion("kind", [
     erlangBeamSummaryViewResultSchema,
     devicetreeSummaryViewResultSchema,
     espNvsSummaryViewResultSchema,
+    firmwareMmioSynthesisSummaryViewResultSchema,
     firmwareVectorTableSummaryViewResultSchema,
     labviewArtifactSummaryViewResultSchema,
     uefiFirmwareSummaryViewResultSchema,
@@ -888,6 +897,14 @@ export const analysisViewResultSchema = z.discriminatedUnion("kind", [
     view: espNvsViewRequestSchema,
     nvs: espNvsPageContextSchema,
     items: espNvsViewItemsSchema,
+  }),
+  z.strictObject({
+    ...viewResultBase,
+    kind: z.literal("firmware-mmio-synthesis"),
+    parent_operation: z.literal("inspect_firmware_mmio_synthesis"),
+    view: firmwareMmioSynthesisViewRequestSchema,
+    mmio_synthesis: firmwareMmioSynthesisPageContextSchema,
+    items: firmwareMmioSynthesisViewItemsSchema,
   }),
   z.strictObject({
     ...viewResultBase,

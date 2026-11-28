@@ -277,3 +277,9 @@ export const FIRMWARE_VECTOR_TABLE_PROVIDER = Object.freeze({
   name: "REA firmware vector table decoder",
   version: "1",
 } as const);
+
+export const FIRMWARE_MMIO_SYNTHESIS_PROVIDER = Object.freeze({
+  id: "rea-firmware-mmio-synthesis",
+  name: "REA firmware split-immediate MMIO disassembler",
+  version: "1",
+} as const);

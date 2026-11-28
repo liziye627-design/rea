@@ -12,7 +12,10 @@ select a returned ELF separately for supported Ghidra analysis. For bare-metal
 ARM M-profile and RISC-V images with a known load base, use
 [`inspect_firmware_vector_table`](firmware-vector-tables.md) to decode system
 exception vectors, external IRQ handler addresses, and optional CMSIS-SVD
-interrupt bindings without opening a session.
+interrupt bindings without opening a session, and use
+[`inspect_firmware_mmio_synthesis`](firmware-mmio-synthesis.md) to disassemble
+split-immediate MMIO peripheral accesses across RISC-V, MIPS32, PowerPC, and
+ARM64 images.
 
 On Linux, Binwalk and Unblob run as REA-owned processes and require a
 procps-compatible system `ps`; see the shared

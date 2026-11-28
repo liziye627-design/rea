@@ -110,6 +110,7 @@ The [REA website](https://rea.tools/) has worked examples and product pages.
 
 - [Firmware analysis](guides/firmware/firmware-analysis.md)
 - [Firmware interrupt and trap vector tables](guides/firmware/firmware-vector-tables.md)
+- [Firmware split-immediate MMIO disassembly](guides/firmware/firmware-mmio-synthesis.md)
 - [Android OTA update payloads](guides/firmware/android-ota-payload.md)
 - [Android Verified Boot vbmeta images](guides/firmware/android-vbmeta.md)
 - [Android sparse images](guides/firmware/android-sparse-image.md)

@@ -1375,6 +1375,24 @@ export const PROVIDER_LIFECYCLE_COVERAGE: Readonly<
       ),
     ),
   ),
+  "rea-firmware-mmio-synthesis": inProcess(
+    covered(
+      test(
+        "tests/boundary/mcp/firmwareMmioSynthesisMcpCli.test.ts",
+        "disassembles RISC-V split-immediate MMIO accesses with CLI and advertised MCP parity and enforces max_file_bytes",
+      ),
+    ),
+    covered(
+      test(
+        "src/firmware/mmioSynthesis/FirmwareMmioSynthesisProvider.test.ts",
+        "returns typed resource, integrity, and cancellation failures",
+      ),
+      test(
+        "src/application/binaryDiagnostics/FirmwareMmioSynthesisService.test.ts",
+        "retains completed Evidence and caller selections on late cancellation",
+      ),
+    ),
+  ),
   "rea-firmware-vector-table": inProcess(
     covered(
       test(
