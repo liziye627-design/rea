@@ -23,6 +23,13 @@ import {
 } from "../domain/rawBinary.fixture.js";
 
 describe("raw-binary Ghidra language binding", () => {
+  it("maps the big-endian 6809 family to the default 16-bit 6809 language", () => {
+    expect(ghidraRawBinaryLanguage("6809")).toEqual({
+      languageId: "6809:BE:16:default",
+      compilerSpecId: "default",
+      defaultAddressSpace: "RAM",
+    });
+  });
   it("maps the big-endian m68k family to the default 68000 language", () => {
     expect(ghidraRawBinaryLanguage("m68k")).toEqual({
       languageId: "68000:BE:32:default",
@@ -127,6 +134,44 @@ describe("raw-binary mapped-block state", () => {
         ok: true,
         value: {
           status: space === "RAM" ? "verified" : "mismatch",
+          checks: expect.arrayContaining([
+            expect.objectContaining({
+              name: "default_address_space",
+              expected: "RAM",
+              observed: space,
+              matched: space === "RAM",
+            }),
+          ]),
+        },
+      });
+    },
+  );
+  it.each(["RAM", "ram"])(
+    "requires the bound 6809 address space for %s observations",
+    (space) => {
+      const f = fixtureRawBinaryLoadImage();
+      const target = {
+        ...f.target,
+        architecture: "6809" as const,
+        availableArchitectures: ["6809" as const],
+        rawLoad: rawLoadAtEntry("0x8000"),
+      };
+      f.observation.language_id = "6809:BE:16:default";
+      f.observation.default_address_space = space;
+      f.observation.entry_points = [target.rawLoad.entryPoint];
+      const mapping = f.observation.mappings[0];
+      if (mapping === undefined)
+        throw new Error("Missing source mapping fixture");
+      mapping.start = target.rawLoad.baseAddress;
+      mapping.end = "0x8003";
+      mapping.address_space = space;
+      expect(
+        attestGhidraRawBinaryLoadImage(f.snapshot, target, f.observation),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          status: space === "RAM" ? "verified" : "mismatch",
+          language_id: "6809:BE:16:default",
           checks: expect.arrayContaining([
             expect.objectContaining({
               name: "default_address_space",

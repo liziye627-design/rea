@@ -213,6 +213,7 @@ const HOPPER_ARCHITECTURE_FLAGS = {
   arm64_32: null,
   mips: null,
   "6502": "raw-only",
+  "6809": "raw-only",
   riscv: null,
   powerpc: null,
   m68k: "raw-only",

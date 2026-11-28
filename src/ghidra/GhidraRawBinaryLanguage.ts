@@ -113,6 +113,14 @@ export const ghidraRawBinaryLanguage = (
         compilerSpecId: "default",
         defaultAddressSpace: "RAM",
       };
+    case "6809":
+      // Ghidra's MC6800 processor module defines 6809 in the 16-bit big-endian
+      // RAM space; Hitachi 6309 (H6309) is a separate processor variant.
+      return {
+        languageId: "6809:BE:16:default",
+        compilerSpecId: "default",
+        defaultAddressSpace: "RAM",
+      };
     case "m68k":
       // Ghidra's default 68000 language decodes the 68040 superset; no
       // MC68000-only variant is declared in the 68000 processor module.
@@ -149,7 +157,7 @@ export const ghidraRawBinaryLanguage = (
 };
 
 const GENERIC_RAW_LANGUAGES =
-  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
+  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; 6809 uses the big-endian 16-bit 6809 default language, and m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02, 65816 and Hitachi 6309, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
 
 /** Limitations that every result from a raw-binary session carries. */
 export const ghidraRawBinaryLimitations = (
