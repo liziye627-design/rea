@@ -110,6 +110,7 @@ const GHIDRA_ARCHITECTURES = {
   "6502": true,
   riscv: true,
   powerpc: true,
+  loongarch: true,
   m68k: true,
   hexagon: true,
   xtensa: true,

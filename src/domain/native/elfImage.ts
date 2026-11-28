@@ -190,8 +190,6 @@ export const architectureForElfMachine = (machine: number): string => {
       return "ppc64";
     case 22:
       return "s390";
-    case 258:
-      return "loongarch";
     default:
       return `elf-machine-${machine}`;
   }

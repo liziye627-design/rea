@@ -66,6 +66,7 @@ const IDA_ARCHITECTURES = {
   "6502": "unsupported",
   riscv: "ghidra",
   powerpc: "ghidra",
+  loongarch: "ghidra",
   m68k: "unsupported",
   hexagon: "ghidra",
   xtensa: "unsupported",

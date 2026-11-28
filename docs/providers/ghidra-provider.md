@@ -35,6 +35,13 @@ at the selected installation metadata.
 
 Xtensa ELF files (`EM_XTENSA = 94`) use the header-selected Ghidra import
 language and report the canonical `xtensa` architecture in CLI/MCP results.
+Little-endian LoongArch ELF32 and ELF64 files (`EM_LOONGARCH = 258`) with object
+ABI v0 or v1 (`e_flags & 0xc0` in `{0x00, 0x40}`) and float modifier `0x1`,
+`0x2`, or `0x3` (`e_flags & 0x7`) report `loongarch` and bind Ghidra's
+`Loongarch:LE:64:lp64d`, `Loongarch:LE:64:lp64f`, `Loongarch:LE:32:ilp32d`, or
+`Loongarch:LE:32:ilp32f` language (`default` compiler specification, replaceable
+via `REA_GHIDRA_LANGUAGE_ID`); Ghidra has no dedicated soft-float `.cspec`, so
+`0x1` imports with `lp64d` (64-bit) or `ilp32f` (32-bit) as in `loongarch.opinion`.
 Processor extensions and calling-convention compatibility remain specific to
 the selected Ghidra language; family recognition alone does not establish them.
 

@@ -63,6 +63,7 @@ const KUNA_ARCHITECTURE_LABELS = {
   "6502": null,
   riscv: null,
   powerpc: null,
+  loongarch: null,
   m68k: null,
   hexagon: null,
   xtensa: null,

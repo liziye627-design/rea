@@ -32,6 +32,7 @@ export const BINARY_ARCHITECTURES = [
   "6502",
   "riscv",
   "powerpc",
+  "loongarch",
   "m68k",
   "hexagon",
   "xtensa",
@@ -121,6 +122,7 @@ export const ELF_METADATA_ARCHITECTURES = [
   "mips",
   "riscv",
   "powerpc",
+  "loongarch",
 ] as const satisfies readonly BinaryArchitecture[];
 
 /** Families that require a specialized target variant instead of generic headers. */
@@ -374,6 +376,16 @@ export type BinaryTarget =
       readonly availableArchitectures: readonly "powerpc"[];
       /** Family identity does not select a processor variant. */
       readonly powerpc: ElfFamilyMetadata;
+      readonly executableRole?: never;
+      readonly managed?: never;
+    })
+  | (BinaryTargetIdentity & {
+      readonly kind: "executable";
+      readonly format: "elf";
+      readonly architecture: "loongarch";
+      readonly availableArchitectures: readonly "loongarch"[];
+      /** Family identity does not select an ABI or floating-point variant. */
+      readonly loongarch: ElfFamilyMetadata;
       readonly executableRole?: never;
       readonly managed?: never;
     })

@@ -4,6 +4,7 @@ import {
   ghidraMipsIncompleteDeclarationsReason,
   ghidraMipsUnsupportedReason,
 } from "./GhidraMipsProfile.js";
+import { ghidraLoongArchUnsupportedReason } from "./GhidraLoongArchProfile.js";
 import { ghidraPowerPcUnsupportedReason } from "./GhidraPowerPcProfile.js";
 import { ghidraRiscvUnsupportedReason } from "./GhidraRiscvProfile.js";
 
@@ -24,6 +25,8 @@ export const ghidraProcessorUnsupportedReason = (
     return null;
   if (target.kind === "executable" && target.architecture === "powerpc")
     return ghidraPowerPcUnsupportedReason(target);
+  if (target.kind === "executable" && target.architecture === "loongarch")
+    return ghidraLoongArchUnsupportedReason(target);
   if (target.kind === "executable" && target.architecture === "riscv")
     return ghidraRiscvUnsupportedReason(target);
   if (

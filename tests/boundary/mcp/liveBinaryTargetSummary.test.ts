@@ -50,6 +50,13 @@ const targets: readonly BinaryTarget[] = [
   {
     ...executable,
     format: "elf",
+    architecture: "loongarch",
+    availableArchitectures: ["loongarch"],
+    loongarch: { ...elf, flags: 0x43 },
+  },
+  {
+    ...executable,
+    format: "elf",
     architecture: "hexagon",
     availableArchitectures: ["hexagon"],
   },
@@ -125,6 +132,21 @@ const impossible = [
   ...(["pe", "mach-o", "mach-o-universal", "dos-mz", "dos-com"] as const).map(
     (format) => ({ kind: "executable", format, architecture: "xtensa" }),
   ),
+  ...(
+    [
+      "pe",
+      "mach-o",
+      "mach-o-universal",
+      "dos-mz",
+      "dos-com",
+      "raw-binary",
+    ] as const
+  ).map((format) => ({
+    kind: "executable",
+    format,
+    architecture: "loongarch",
+    ...(format === "raw-binary" ? { entry_point: "0x0" } : {}),
+  })),
   { kind: "database", format: "elf", architecture: "x86" },
   { kind: "executable", format: "zip", architecture: "arm64" },
   { kind: "archive", format: "zip", architecture: "arm64" },

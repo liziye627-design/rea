@@ -69,6 +69,32 @@ const cases = [
     },
     observation: { address: "0x100101b0", value: "rea_ppc_entry" },
   },
+  {
+    architecture: "loongarch",
+    target: {
+      ...commonTarget,
+      architecture: "loongarch",
+      availableArchitectures: ["loongarch"],
+      loongarch: { elfClass: 64, byteOrder: "little", type: 2, flags: 0x43 },
+    },
+    profile: {
+      loongarch_elf: {
+        elf_class: 64,
+        byte_order: "little",
+        type: 2,
+        flags: 0x43,
+      },
+    },
+    changed: {
+      loongarch_elf: {
+        elf_class: 64,
+        byte_order: "little",
+        type: 2,
+        flags: 0x42,
+      },
+    },
+    observation: { address: "0x1200005c0", value: "rea_loongarch_entry" },
+  },
 ] as const satisfies readonly {
   architecture: string;
   target: BinaryTarget;

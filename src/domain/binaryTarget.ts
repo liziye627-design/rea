@@ -80,6 +80,12 @@ export type ExecutableMetadata =
     }
   | {
       readonly format: "elf";
+      readonly architecture: "loongarch";
+      readonly availableArchitectures: readonly "loongarch"[];
+      readonly loongarch: ElfFamilyMetadata;
+    }
+  | {
+      readonly format: "elf";
       readonly architecture: "hexagon";
       readonly availableArchitectures: readonly "hexagon"[];
     }
@@ -531,7 +537,8 @@ const parseElf = (
   if (
     architecture === "mips" ||
     architecture === "riscv" ||
-    architecture === "powerpc"
+    architecture === "powerpc" ||
+    architecture === "loongarch"
   ) {
     const metadata: ElfFamilyMetadata = {
       elfClass,
@@ -539,6 +546,13 @@ const parseElf = (
       type,
       flags,
     };
+    if (architecture === "loongarch")
+      return ok({
+        format: "elf",
+        architecture,
+        availableArchitectures: [architecture],
+        loongarch: metadata,
+      });
     if (architecture === "powerpc")
       return ok({
         format: "elf",

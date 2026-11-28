@@ -24,6 +24,8 @@ describe("executable header parsing", () => {
     [elf(2, 2, 183), "elf", "arm64"],
     [elf(1, 1, 164), "elf", "hexagon"],
     [elf(1, 1, 94), "elf", "xtensa"],
+    [elf(1, 1, 258), "elf", "loongarch"],
+    [elf(2, 1, 258), "elf", "loongarch"],
     [thinMach(0xfeedfacf, 0x0100000c), "mach-o", "arm64"],
     [thinMach(0xcefaedfe, 0x01000007), "mach-o", "x86_64"],
     [thinMach(0xcefaedfe, 0x0200000c), "mach-o", "arm64_32"],

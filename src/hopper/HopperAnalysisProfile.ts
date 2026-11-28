@@ -215,6 +215,7 @@ const HOPPER_ARCHITECTURE_FLAGS = {
   "6502": "raw-only",
   riscv: null,
   powerpc: null,
+  loongarch: null,
   m68k: "raw-only",
   hexagon: null,
   xtensa: null,

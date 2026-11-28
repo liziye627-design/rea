@@ -782,6 +782,7 @@ describe("Ghidra Mach-O slice support", () => {
         "mips",
         "riscv",
         "powerpc",
+        "loongarch",
         "hexagon",
         "xtensa",
         "6502",
