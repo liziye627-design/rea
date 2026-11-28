@@ -155,12 +155,39 @@ export class FirmwareVectorTableProvider implements FirmwareVectorTablePort {
     let observed:
       | { readonly sha256: string; readonly bytes: number }
       | undefined;
-    const maxSliceBytes = input.max_entries * 4 + 4;
+    const maxSliceBytes =
+      input.architecture === "arm-a-r" ? 32 + 4096 : input.max_entries * 4 + 4;
     const minimumBytes = minimumVectorTableBytes(input.architecture);
     const baseAddress = Number.parseInt(input.base_address.slice(2), 16) >>> 0;
     try {
       return await this.#resources.run(async () => {
         assertArtifactReadActive(options?.signal);
+        if (
+          input.architecture !== "avr" &&
+          input.vector_table_offset % 4 !== 0
+        ) {
+          throw new AnalysisInputError(
+            OPERATION,
+            {
+              conformsToInputContract: true,
+              userMessage: `Invalid vector_table_offset for ${OPERATION}: ${input.architecture} vector slots are 32-bit words and require a 4-byte aligned vector_table_offset (received ${String(input.vector_table_offset)}).`,
+              remediationAction:
+                "Pass a 4-byte aligned vector_table_offset for 32-bit vector tables, or select architecture avr for 2-byte aligned AVR vector tables.",
+              related: { parameters: ["vector_table_offset", "architecture"] },
+            },
+            [
+              {
+                path: ["vector_table_offset"],
+                reason: "invalid_format",
+                message: `${input.architecture} requires a 4-byte aligned vector_table_offset.`,
+                observed: {
+                  architecture: input.architecture,
+                  vector_table_offset: input.vector_table_offset,
+                },
+              },
+            ],
+          );
+        }
         const svdResult =
           input.svd_xml === undefined
             ? ok({ byIrq: new Map(), skipped: [] })

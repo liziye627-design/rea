@@ -655,7 +655,7 @@ export const registerBinaryDiagnosticsCommands = (
     contract("inspect_firmware_vector_table"),
     {
       description:
-        "Decode an ARM M-profile or RISC-V mtvec interrupt/trap vector table without executing it",
+        "Decode an ARM M-profile, ARM A/R, RISC-V mtvec, AVR, or M68000 interrupt/exception vector table without executing it",
       positionals: ["path"],
       callerPaths: ["path"],
       evidenceDelivery: true,
@@ -663,15 +663,16 @@ export const registerBinaryDiagnosticsCommands = (
         path: { description: "Local firmware binary or flash dump" },
         architecture: {
           description:
-            "Target profile: an ARM M-profile variant (armv6-m, armv7-m, armv7e-m, armv8-m.base, armv8-m.main, armv8.1-m.main) or riscv",
+            "Target profile: an ARM M-profile variant (armv6-m..armv8.1-m.main), arm-a-r, riscv, avr, or m68k",
         },
         base_address: {
           description: "32-bit load base address for file offset 0",
         },
         vector_table_offset: {
-          description: "4-byte aligned byte offset of the vector table",
+          description:
+            "Byte offset of the vector table (4-byte aligned for 32-bit profiles, 2-byte aligned for avr)",
         },
-        max_entries: { description: "Maximum 32-bit slots to decode" },
+        max_entries: { description: "Maximum vector or trap slots to decode" },
         svd_xml: {
           description: "Optional CMSIS-SVD XML text for external IRQ names",
         },

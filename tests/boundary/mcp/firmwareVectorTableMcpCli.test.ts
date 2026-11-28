@@ -479,4 +479,104 @@ describe("inspect_firmware_vector_table CLI and MCP parity", () => {
       operation: "inspect_firmware_vector_table",
     });
   });
+
+  it("pages arm_ar_slots, avr_slots, and m68k_entries through inspect_analysis_view over MCP", async () => {
+    const dir = await createTestTempDirectory("rea-fw-vt-multi-");
+    const armArPath = join(dir, "arm_ar.bin");
+    const armArImg = Buffer.alloc(48, 0);
+    armArImg.writeUInt32LE(0xe59f_f018, 0); // Reset: LDR pc, [pc, #0x18] -> 0x20
+    armArImg.writeUInt32LE(0x0001_0000, 0x20);
+    await writeFile(armArPath, armArImg);
+
+    const avrPath = join(dir, "avr.bin");
+    const avrImg = Buffer.alloc(4, 0);
+    avrImg.writeUInt16LE(0xc00f, 0); // RESET: rjmp +30 -> 0x20
+    avrImg.writeUInt16LE(0x9518, 2); // IRQ 0: reti
+    await writeFile(avrPath, avrImg);
+
+    const m68kPath = join(dir, "m68k.bin");
+    const m68kImg = Buffer.alloc(12, 0);
+    m68kImg.writeUInt32BE(0x00ff_ff00, 0); // InitialSSP
+    m68kImg.writeUInt32BE(0x0000_0200, 4); // Reset
+    m68kImg.writeUInt32BE(0x0000_0300, 8); // BusError
+    await writeFile(m68kPath, m68kImg);
+
+    const session = createTestBinarySession(() => {
+      throw new Error("No deep provider should start");
+    });
+    const server = createServer(
+      { kind: "session", session },
+      { environment: {}, logger: silentLogger },
+    );
+    const client = new Client(
+      { name: "fw-vt-multi-test", version: "1" },
+      { jsonSchemaValidator: createMcpSchemaValidation() },
+    );
+    onTestFinished(async () => {
+      await client.close();
+      await server.close();
+      await session.close();
+    });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    for (const item of [
+      {
+        path: armArPath,
+        architecture: "arm-a-r",
+        collection: "arm_ar_slots",
+        expectedReset: "0x10000",
+      },
+      {
+        path: avrPath,
+        architecture: "avr",
+        collection: "avr_slots",
+        expectedReset: "0x20",
+      },
+      {
+        path: m68kPath,
+        architecture: "m68k",
+        collection: "m68k_entries",
+        expectedReset: "0x200",
+      },
+    ] as const) {
+      const summaryRes = await client.callTool({
+        name: "inspect_firmware_vector_table",
+        arguments: {
+          path: item.path,
+          architecture: item.architecture,
+          base_address: "0x00000000",
+          detail: "summary",
+        },
+      });
+      expect(summaryRes.isError).not.toBe(true);
+      const summaryContent = summaryRes.structuredContent as {
+        normalized_result: {
+          parent_evidence_id: string;
+          summary: { reset_code_address: string };
+        };
+      };
+      expect(summaryContent.normalized_result.summary.reset_code_address).toBe(
+        item.expectedReset,
+      );
+      const pageRes = await client.callTool({
+        name: "inspect_analysis_view",
+        arguments: {
+          source: {
+            kind: "retained-evidence",
+            evidence_id: summaryContent.normalized_result.parent_evidence_id,
+          },
+          view: {
+            kind: "firmware-vector-table",
+            collection: item.collection,
+            offset: 0,
+            limit: 4,
+          },
+        },
+      });
+      expect(pageRes.isError).not.toBe(true);
+    }
+  });
 });

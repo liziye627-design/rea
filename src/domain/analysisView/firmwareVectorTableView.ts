@@ -20,7 +20,10 @@ export const firmwareVectorTableViewRequestSchema = z.strictObject({
   kind: z.literal("firmware-vector-table"),
   collection: z.enum([
     "arm_entries",
+    "arm_ar_slots",
     "riscv_slots",
+    "avr_slots",
+    "m68k_entries",
     "shared_handler_groups",
     "anomalies",
   ]),
@@ -35,7 +38,16 @@ export const firmwareVectorTableViewItemsSchema = z.union([
     firmwareVectorTableSchema.shape.arm_entries.element.extend(sourceIndex),
   ),
   z.array(
+    firmwareVectorTableSchema.shape.arm_ar_slots.element.extend(sourceIndex),
+  ),
+  z.array(
     firmwareVectorTableSchema.shape.riscv_slots.element.extend(sourceIndex),
+  ),
+  z.array(
+    firmwareVectorTableSchema.shape.avr_slots.element.extend(sourceIndex),
+  ),
+  z.array(
+    firmwareVectorTableSchema.shape.m68k_entries.element.extend(sourceIndex),
   ),
   z.array(
     firmwareVectorTableSchema.shape.shared_handler_groups.element.extend(
@@ -64,14 +76,21 @@ const {
   reset_code_address,
   trap_entry_address,
   riscv_table_shape,
+  avr_slot_bytes,
   svd_interrupts,
 } = firmwareVectorTableSchema.shape;
 
 const counts = {
   arm_entry_count: z.int().nonnegative(),
   active_arm_entry_count: z.int().nonnegative(),
+  arm_ar_slot_count: z.int().nonnegative(),
+  recognized_arm_ar_slot_count: z.int().nonnegative(),
   riscv_slot_count: z.int().nonnegative(),
   recognized_riscv_slot_count: z.int().nonnegative(),
+  avr_slot_count: z.int().nonnegative(),
+  recognized_avr_slot_count: z.int().nonnegative(),
+  m68k_entry_count: z.int().nonnegative(),
+  active_m68k_entry_count: z.int().nonnegative(),
   shared_handler_group_count: z.int().nonnegative(),
   anomaly_count: z.int().nonnegative(),
 };
@@ -90,6 +109,7 @@ export const firmwareVectorTableSummarySchema = z.strictObject({
   reset_code_address,
   trap_entry_address,
   riscv_table_shape,
+  avr_slot_bytes,
   svd_interrupts,
   ...counts,
 });
@@ -98,6 +118,23 @@ export const firmwareVectorTablePageContextSchema =
   firmwareVectorTableSummarySchema;
 
 const readReport = createAnalysisViewResultReader(firmwareVectorTableSchema);
+
+const primarySlotCount = (
+  r: z.output<typeof firmwareVectorTableSchema>,
+): number => {
+  switch (r.architecture) {
+    case "riscv":
+      return r.riscv_slots.length;
+    case "arm-a-r":
+      return r.arm_ar_slots.length;
+    case "avr":
+      return r.avr_slots.length;
+    case "m68k":
+      return r.m68k_entries.length;
+    default:
+      return r.arm_entries.length;
+  }
+};
 
 export const projectFirmwareVectorTableView = (
   parent: AnalysisViewParent,
@@ -127,11 +164,18 @@ export const projectFirmwareVectorTableView = (
     reset_code_address: r.reset_code_address,
     trap_entry_address: r.trap_entry_address,
     riscv_table_shape: r.riscv_table_shape,
+    avr_slot_bytes: r.avr_slot_bytes,
     svd_interrupts: r.svd_interrupts,
     arm_entry_count: r.arm_entries.length,
     active_arm_entry_count: r.active_arm_entry_count,
+    arm_ar_slot_count: r.arm_ar_slots.length,
+    recognized_arm_ar_slot_count: r.recognized_arm_ar_slot_count,
     riscv_slot_count: r.riscv_slots.length,
     recognized_riscv_slot_count: r.recognized_riscv_slot_count,
+    avr_slot_count: r.avr_slots.length,
+    recognized_avr_slot_count: r.recognized_avr_slot_count,
+    m68k_entry_count: r.m68k_entries.length,
+    active_m68k_entry_count: r.active_m68k_entry_count,
     shared_handler_group_count: r.shared_handler_groups.length,
     anomaly_count: r.anomalies.length,
   };
@@ -142,7 +186,7 @@ export const projectFirmwareVectorTableView = (
     artifact: { path: r.artifact.path, sha256: r.artifact.sha256 },
     limitations: boundedViewLimitations(parent, r.limitations),
     unknowns: [
-      "Runtime VTOR or mtvec relocations, dynamic handler table rewrites, and interrupt-controller enable/priority state are not established from static table bytes alone.",
+      "Runtime VTOR, VBAR, VBR, or mtvec relocations, dynamic handler table rewrites, and interrupt-controller enable/priority state are not established from static table bytes alone.",
     ],
   };
   if (view.kind === "summary")
@@ -151,45 +195,37 @@ export const projectFirmwareVectorTableView = (
       kind: "summary" as const,
       view,
       summary: context,
-      coverage: completeWithinViewCoverage(
-        r.architecture === "riscv"
-          ? r.riscv_slots.length
-          : r.arm_entries.length,
-      ),
+      coverage: completeWithinViewCoverage(primarySlotCount(r)),
     });
 
+  const withIndex = <Row extends object>(row: Row, source_index: number) => ({
+    ...row,
+    source_index,
+  });
   const selected =
     view.collection === "arm_entries"
-      ? selectViewRows(r.arm_entries, view, undefined, (row, source_index) => ({
-          ...row,
-          source_index,
-        }))
-      : view.collection === "riscv_slots"
-        ? selectViewRows(
-            r.riscv_slots,
-            view,
-            undefined,
-            (row, source_index) => ({
-              ...row,
-              source_index,
-            }),
-          )
-        : view.collection === "shared_handler_groups"
-          ? selectViewRows(
-              r.shared_handler_groups,
-              view,
-              undefined,
-              (row, source_index) => ({
-                ...row,
-                source_index,
-              }),
-            )
-          : selectViewRows(
-              r.anomalies,
-              view,
-              undefined,
-              (anomaly, source_index) => ({ anomaly, source_index }),
-            );
+      ? selectViewRows(r.arm_entries, view, undefined, withIndex)
+      : view.collection === "arm_ar_slots"
+        ? selectViewRows(r.arm_ar_slots, view, undefined, withIndex)
+        : view.collection === "riscv_slots"
+          ? selectViewRows(r.riscv_slots, view, undefined, withIndex)
+          : view.collection === "avr_slots"
+            ? selectViewRows(r.avr_slots, view, undefined, withIndex)
+            : view.collection === "m68k_entries"
+              ? selectViewRows(r.m68k_entries, view, undefined, withIndex)
+              : view.collection === "shared_handler_groups"
+                ? selectViewRows(
+                    r.shared_handler_groups,
+                    view,
+                    undefined,
+                    withIndex,
+                  )
+                : selectViewRows(
+                    r.anomalies,
+                    view,
+                    undefined,
+                    (anomaly, source_index) => ({ anomaly, source_index }),
+                  );
 
   return ok({
     ...shared,

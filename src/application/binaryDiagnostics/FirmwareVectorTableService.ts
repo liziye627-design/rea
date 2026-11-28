@@ -28,6 +28,8 @@ const validVectorReport = (
   if (report.table_file_range.end > report.artifact.bytes) return false;
   if ((input.architecture === "riscv") !== (report.riscv_table_shape !== null))
     return false;
+  if ((input.architecture === "avr") !== (report.avr_slot_bytes !== null))
+    return false;
   if (input.architecture === "riscv" && report.reset_code_address !== null)
     return false;
   if (input.architecture !== "riscv" && report.trap_entry_address !== null)

@@ -114,14 +114,18 @@ const ownerFirstPage = (evidence: Evidence): JsonValue | undefined =>
               : evidence.operation === "inspect_firmware_vector_table"
                 ? {
                     kind: "firmware-vector-table",
-                    collection:
-                      (
+                    collection: (() => {
+                      const arch = (
                         evidence.normalized_result as {
                           architecture?: unknown;
                         } | null
-                      )?.architecture === "riscv"
-                        ? "riscv_slots"
-                        : "arm_entries",
+                      )?.architecture;
+                      if (arch === "riscv") return "riscv_slots";
+                      if (arch === "arm-a-r") return "arm_ar_slots";
+                      if (arch === "avr") return "avr_slots";
+                      if (arch === "m68k") return "m68k_entries";
+                      return "arm_entries";
+                    })(),
                     offset: 0,
                     limit: 64,
                   }

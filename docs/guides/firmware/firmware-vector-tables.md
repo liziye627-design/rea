@@ -3,9 +3,11 @@
 `inspect_firmware_vector_table` (`rea inspect-firmware-vector-table`) decodes
 ARM M-profile exception/IRQ vector tables (`armv6-m`, `armv7-m`, `armv7e-m`,
 `armv8-m.base`, `armv8-m.main`, `armv8.1-m.main`, the same variant names
-`open_binary` accepts for raw images) and
-RISC-V `mtvec` trap tables directly from a local firmware image without opening
-an analysis session or executing target code.
+`open_binary` accepts for raw images), classic ARM A/R-profile instruction
+exception tables (`arm-a-r`), RISC-V `mtvec` trap tables (`riscv`), Atmel AVR
+flash interrupt jump tables (`avr`), and Motorola 68000 big-endian exception
+vector tables (`m68k`) directly from a local firmware image without opening an
+analysis session or executing target code.
 
 ## When to use it
 
@@ -30,6 +32,21 @@ reset, fault, timer, and peripheral interrupt vectors rather than a hosted
   while leaving `reset_code_address` `null`) across standard cause codes
   (`MachineSoftwareInterrupt`, `MachineTimerInterrupt`,
   `MachineExternalInterrupt`) and local interrupt slots (`>= 16`).
+- Disassemble classic ARM A/R-profile (`arm-a-r`) 8-slot A32 exception tables
+  (`Reset`, `UndefinedInstruction`, `SupervisorCall`, `PrefetchAbort`,
+  `DataAbort`, `Reserved`, `IRQ`, `FIQ`) encoded as `B <target>`,
+  `LDR pc, [pc, #±imm12]` (resolving the 32-bit literal-pool handler pointer and
+  Thumb bit-0 interworking), `MOV pc, #imm`, or `SUBS pc, lr, #imm` /
+  `MOVS pc, lr`, checking 32-byte `VBAR` alignment and flagging infinite
+  self-branches (`b .`).
+- Disassemble Atmel AVR (`avr`) 2-byte `RJMP` and 4-byte `JMP` / `RETI` flash
+  interrupt vector tables (detecting 2-byte vs 4-byte slot stride from `RESET`,
+  including `rjmp; nop` slots emitted by `avr-gcc`).
+- Decode Motorola 68000 (`m68k`) 32-bit big-endian exception vector tables
+  (`InitialSSP`, `Reset`, `BusError`, `AddressError`, `IllegalInstruction`,
+  `ZeroDivide`, `CHK`, `TRAPV`, `PrivilegeViolation`, `Trace`, Line 1010/1111
+  emulators, `Level1Autovector`..`Level7Autovector`, `TRAP0`..`TRAP15`, and user
+  device vectors `64..255`), flagging odd stack or handler addresses.
 - Bind external IRQ numbers to declared peripheral interrupt names from an
   optional caller-supplied CMSIS-SVD XML text (`svd_xml`) within
   `max_svd_xml_nodes` and `max_svd_expanded_chars` without guessing vendor names

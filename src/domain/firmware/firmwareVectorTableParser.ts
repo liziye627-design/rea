@@ -4,9 +4,23 @@ import type { ArchitectureVariant } from "../architectureVariant.js";
 import { malformedInput, type ParseFailureError } from "../parseFailure.js";
 import { err, ok, type Result } from "../result.js";
 import {
+  ARM_AR_VBAR_ALIGNMENT_BYTES,
+  ARM_AR_VECTOR_SLOT_COUNT,
+  decodeArmArVectorSlots,
+} from "./firmwareArmArVector.js";
+import {
   ARM_MIN_VTOR_ALIGNMENT_BYTES,
   ARM_SYSTEM_EXCEPTIONS,
 } from "./firmwareArmExceptions.js";
+import {
+  AVR_PROGRAM_SPACE_END_BYTES,
+  decodeAvrVectorSlots,
+  detectAvrSlotBytes,
+} from "./firmwareAvrVector.js";
+import {
+  M68K_MAX_ARCHITECTURAL_VECTORS,
+  decodeM68kVectorEntries,
+} from "./firmwareM68kVector.js";
 import { decodeRiscvVectorSlots } from "./firmwareRiscvTrapVector.js";
 import type { SvdIrqLookupEntry } from "./firmwareSvdInterrupts.js";
 import {
@@ -17,9 +31,9 @@ import {
   type SharedHandlerGroup,
 } from "./firmwareVectorTable.js";
 
-/** InitialSP and Reset: the two words every ARM M-profile table begins with. */
-const ARM_REQUIRED_LEADING_SLOTS = 2;
-/** Number of architectural exception slots before external interrupt 0. */
+/** InitialSP and Reset: the two words every ARM M-profile and M68K table begins with. */
+const POINTER_TABLE_REQUIRED_LEADING_SLOTS = 2;
+/** Number of architectural exception slots before external interrupt 0 on ARM M-profile. */
 const ARM_EXTERNAL_IRQ_BASE = 16;
 const WORD_BYTES = 4;
 /** Words left after the 32-bit address space ends. */
@@ -220,6 +234,20 @@ export interface ParseFirmwareVectorTableOptions {
   readonly svdSkipped: readonly string[];
 }
 
+const emptySlotCollections = () => ({
+  avr_slot_bytes: null,
+  arm_entries: [],
+  active_arm_entry_count: 0,
+  arm_ar_slots: [],
+  recognized_arm_ar_slot_count: 0,
+  riscv_slots: [],
+  recognized_riscv_slot_count: 0,
+  avr_slots: [],
+  recognized_avr_slot_count: 0,
+  m68k_entries: [],
+  active_m68k_entry_count: 0,
+});
+
 const decodeArmVectorEntries = (
   options: ParseFirmwareVectorTableOptions,
   architecture: ArchitectureVariant,
@@ -278,8 +306,11 @@ const decodeArmVectorEntries = (
 /** Minimum byte length required to decode the leading slots of `architecture`. */
 export const minimumVectorTableBytes = (
   architecture: FirmwareVectorArchitecture,
-): number =>
-  (architecture === "riscv" ? 1 : ARM_REQUIRED_LEADING_SLOTS) * WORD_BYTES;
+): number => {
+  if (architecture === "avr") return 2;
+  if (architecture === "riscv" || architecture === "arm-a-r") return WORD_BYTES;
+  return POINTER_TABLE_REQUIRED_LEADING_SLOTS * WORD_BYTES;
+};
 
 interface ReportContext {
   readonly options: ParseFirmwareVectorTableOptions;
@@ -297,6 +328,8 @@ const finalizeTableCoverage = (
   addressableEntries: number,
   consumedBytes: number,
   limitations: string[],
+  slotWidthLabel = "32-bit",
+  customCapReason?: string,
 ): FirmwareVectorTable["coverage"] => {
   const availableFromOffset =
     options.artifact.bytes - options.vectorTableOffset;
@@ -304,11 +337,13 @@ const finalizeTableCoverage = (
   if (consumedBytes < availableFromOffset) {
     const afterConsumedOffset = options.vectorTableOffset + consumedBytes;
     const omission =
-      entryCount === addressableEntries && entryCount < options.maxEntries
-        ? `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes); later slots would lie past the end of the 32-bit address space and were not interpreted.`
-        : entryCount < options.maxEntries
-          ? `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes); ${String(availableFromOffset - consumedBytes)} trailing byte(s) past offset ${String(afterConsumedOffset)} do not form a complete 32-bit slot.`
-          : `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes) up to max_entries; bytes past offset ${String(afterConsumedOffset)} were not interpreted as vector slots.`;
+      customCapReason !== undefined
+        ? customCapReason
+        : entryCount === addressableEntries && entryCount < options.maxEntries
+          ? `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes); later slots would lie past the end of the ${options.architecture === "avr" ? "AVR program" : "32-bit"} address space and were not interpreted.`
+          : entryCount < options.maxEntries
+            ? `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes); ${String(availableFromOffset - consumedBytes)} trailing byte(s) past offset ${String(afterConsumedOffset)} do not form a complete ${slotWidthLabel} slot.`
+            : `Decoded ${String(entryCount)} slots (${String(consumedBytes)} bytes) up to max_entries; bytes past offset ${String(afterConsumedOffset)} were not interpreted as vector slots.`;
     coverageAcc.recordOmission(omission);
     limitations.push(omission);
   }
@@ -368,6 +403,7 @@ const buildRiscvVectorReport = (ctx: ReportContext): FirmwareVectorTable => {
         : "empty_or_unrecognized";
 
   return {
+    ...emptySlotCollections(),
     artifact: options.artifact,
     architecture: options.architecture,
     base_address: hex32(baseAddress),
@@ -381,14 +417,10 @@ const buildRiscvVectorReport = (ctx: ReportContext): FirmwareVectorTable => {
     },
     coverage,
     initial_stack_pointer: null,
-    // RISC-V mtvec slot 0 is the synchronous exception / trap entry, not CPU reset.
     reset_code_address: null,
     trap_entry_address: slots[0]?.target_code_address ?? null,
     riscv_table_shape: shape,
-    arm_entries: [],
-    active_arm_entry_count: 0,
     riscv_slots: slots,
-    // Every slot with a jump target is an active target.
     recognized_riscv_slot_count: activeTargets.length,
     shared_handler_groups: collectSharedHandlers(activeTargets),
     svd_interrupts: summarizeSvdBindings({
@@ -397,6 +429,231 @@ const buildRiscvVectorReport = (ctx: ReportContext): FirmwareVectorTable => {
       svdMap: options.svdMap,
     }),
     anomalies: ctx.anomalies,
+    limitations,
+  };
+};
+
+const buildArmArVectorReport = (ctx: ReportContext): FirmwareVectorTable => {
+  const { options, baseAddress, vtorUnsigned, anomalies, limitations } = ctx;
+  const cappedEntries = Math.min(ctx.entryCount, ARM_AR_VECTOR_SLOT_COUNT);
+  const vbarAligned = vtorUnsigned % ARM_AR_VBAR_ALIGNMENT_BYTES === 0;
+  if (!vbarAligned) {
+    anomalies.push(
+      `Vector table address ${hex32(vtorUnsigned)} is not ${String(ARM_AR_VBAR_ALIGNMENT_BYTES)}-byte aligned as required by ARMv7-A/R VBAR.`,
+    );
+  }
+  const { slots, activeTargets, consumedBytes } = decodeArmArVectorSlots({
+    tableBytes: options.tableBytes,
+    vectorTableOffset: options.vectorTableOffset,
+    vtorAddress: vtorUnsigned,
+    entryCount: cappedEntries,
+    anomalies,
+  });
+  const availableFromOffset =
+    options.artifact.bytes - options.vectorTableOffset;
+  const customCap =
+    cappedEntries === ARM_AR_VECTOR_SLOT_COUNT &&
+    consumedBytes < availableFromOffset &&
+    options.maxEntries > ARM_AR_VECTOR_SLOT_COUNT
+      ? `Decoded the ${String(ARM_AR_VECTOR_SLOT_COUNT)} architectural ARM A/R exception slots (examining ${String(consumedBytes)} bytes including referenced literal-pool words); bytes past offset ${String(options.vectorTableOffset + consumedBytes)} are outside the 8-slot exception table.`
+      : undefined;
+  const coverage = finalizeTableCoverage(
+    options,
+    cappedEntries,
+    ctx.addressableEntries,
+    consumedBytes,
+    limitations,
+    "32-bit",
+    customCap,
+  );
+  limitations.push(
+    "ARM A/R exception vectors decode A32 instructions at the 8 architectural slots (0x00..0x1c); external IRQ peripheral dispatch occurs inside the IRQ/FIQ handler through an interrupt controller (such as GIC or VIC), not in separate vector-table slots.",
+    "vtor_aligned checks 32-byte ARMv7-A/R VBAR alignment; cores without Security/VBAR extensions fix vectors at 0x00000000 or HIVECS 0xffff0000.",
+  );
+  if (options.svdSupplied) {
+    limitations.push(
+      "CMSIS-SVD peripheral interrupts are not bound directly to the 8 ARM A/R architectural exception slots because IRQ/FIQ dispatch is mediated by the interrupt controller.",
+    );
+  }
+  return {
+    ...emptySlotCollections(),
+    artifact: options.artifact,
+    architecture: options.architecture,
+    base_address: hex32(baseAddress),
+    vector_table_offset: options.vectorTableOffset,
+    vector_table_address: hex32(vtorUnsigned),
+    vtor_aligned: vbarAligned,
+    examined_entries: cappedEntries,
+    table_file_range: {
+      start: options.vectorTableOffset,
+      end: options.vectorTableOffset + consumedBytes,
+    },
+    coverage,
+    initial_stack_pointer: null,
+    reset_code_address: slots[0]?.target_code_address ?? null,
+    trap_entry_address: null,
+    riscv_table_shape: null,
+    arm_ar_slots: slots,
+    recognized_arm_ar_slot_count: activeTargets.length,
+    shared_handler_groups: collectSharedHandlers(activeTargets),
+    svd_interrupts: {
+      supplied: options.svdSupplied,
+      mapped_irq_count: 0,
+      ambiguous_irq_count: 0,
+      unmapped_active_irq_count: 0,
+    },
+    anomalies,
+    limitations,
+  };
+};
+
+const buildAvrVectorReport = (
+  options: ParseFirmwareVectorTableOptions,
+  baseAddress: number,
+  vtorUnsigned: number,
+): FirmwareVectorTable => {
+  const anomalies = [...options.svdSkipped];
+  const limitations: string[] = [];
+  if ((vtorUnsigned & 1) !== 0) {
+    anomalies.push(
+      `AVR vector table byte address ${hex32(vtorUnsigned)} is odd; AVR program flash instructions are 2-byte word aligned.`,
+    );
+  }
+  const slotBytes = detectAvrSlotBytes(options.tableBytes);
+  const addressableEntries =
+    vtorUnsigned >= AVR_PROGRAM_SPACE_END_BYTES
+      ? 0
+      : Math.floor((AVR_PROGRAM_SPACE_END_BYTES - vtorUnsigned) / slotBytes);
+  const decoded = decodeAvrVectorSlots({
+    tableBytes: options.tableBytes,
+    vectorTableOffset: options.vectorTableOffset,
+    baseAddress,
+    maxEntries: options.maxEntries,
+    svdMap: options.svdMap,
+    anomalies,
+  });
+  const coverage = finalizeTableCoverage(
+    options,
+    decoded.slots.length,
+    addressableEntries,
+    decoded.consumedBytes,
+    limitations,
+    `${String(decoded.slotBytes * 8)}-bit`,
+  );
+  limitations.push(
+    `AVR vector slot width (${String(decoded.slotBytes)} bytes) is derived from the observed RESET slot instruction; devices lack an in-band vector-count header, so trailing startup code after the last interrupt vector may decode as unrecognized or jump slots unless max_entries bounds the table.`,
+  );
+  if (!options.svdSupplied) {
+    limitations.push(
+      "No svd_xml profile was supplied; AVR interrupt slots after RESET (index >= 1) keep name: null.",
+    );
+  }
+  return {
+    ...emptySlotCollections(),
+    artifact: options.artifact,
+    architecture: options.architecture,
+    base_address: hex32(baseAddress),
+    vector_table_offset: options.vectorTableOffset,
+    vector_table_address: hex32(vtorUnsigned),
+    vtor_aligned: null,
+    examined_entries: decoded.slots.length,
+    table_file_range: {
+      start: options.vectorTableOffset,
+      end: options.vectorTableOffset + decoded.consumedBytes,
+    },
+    coverage,
+    initial_stack_pointer: null,
+    reset_code_address: decoded.slots[0]?.target_code_address ?? null,
+    trap_entry_address: null,
+    riscv_table_shape: null,
+    avr_slot_bytes: decoded.slotBytes,
+    avr_slots: decoded.slots,
+    recognized_avr_slot_count: decoded.activeTargets.length,
+    shared_handler_groups: collectSharedHandlers(decoded.activeTargets),
+    svd_interrupts: summarizeSvdBindings({
+      supplied: options.svdSupplied,
+      activeIrqNumbers: decoded.activeIrqs,
+      svdMap: options.svdMap,
+    }),
+    anomalies,
+    limitations,
+  };
+};
+
+const buildM68kVectorReport = (ctx: ReportContext): FirmwareVectorTable => {
+  const { options, baseAddress, vtorUnsigned, anomalies, limitations } = ctx;
+  const cappedEntries = Math.min(
+    ctx.entryCount,
+    M68K_MAX_ARCHITECTURAL_VECTORS,
+  );
+  if ((vtorUnsigned & 1) !== 0) {
+    anomalies.push(
+      `M68000 vector table address ${hex32(vtorUnsigned)} is odd; 68000 longword vector fetches require even word alignment.`,
+    );
+  }
+  const decoded = decodeM68kVectorEntries({
+    tableBytes: options.tableBytes,
+    vectorTableOffset: options.vectorTableOffset,
+    vtorAddress: vtorUnsigned,
+    entryCount: cappedEntries,
+    svdMap: options.svdMap,
+    anomalies,
+  });
+  const consumedBytes = decoded.entries.length * WORD_BYTES;
+  const availableFromOffset =
+    options.artifact.bytes - options.vectorTableOffset;
+  const customCap =
+    cappedEntries === M68K_MAX_ARCHITECTURAL_VECTORS &&
+    consumedBytes < availableFromOffset &&
+    options.maxEntries > M68K_MAX_ARCHITECTURAL_VECTORS
+      ? `Decoded all ${String(M68K_MAX_ARCHITECTURAL_VECTORS)} architectural M68000 exception vectors (1024 bytes); bytes past offset ${String(options.vectorTableOffset + consumedBytes)} lie outside the 1024-byte vector table.`
+      : undefined;
+  const coverage = finalizeTableCoverage(
+    options,
+    decoded.entries.length,
+    ctx.addressableEntries,
+    consumedBytes,
+    limitations,
+    "32-bit",
+    customCap,
+  );
+  limitations.push(
+    "M68000 exception vectors are decoded as 32-bit big-endian addresses without masking to the 24-bit MC68000 external address bus; 68010+ VBR relocation and 68881/68851 coprocessor vectors (slots 48..63) are not distinguished from base M68000 reserved slots.",
+  );
+  if (!options.svdSupplied) {
+    limitations.push(
+      "No svd_xml profile was supplied; user device interrupt vectors (slots 64..255) preserve observed handler addresses with name: null.",
+    );
+  }
+  const resetEntry = decoded.entries[1];
+  return {
+    ...emptySlotCollections(),
+    artifact: options.artifact,
+    architecture: options.architecture,
+    base_address: hex32(baseAddress),
+    vector_table_offset: options.vectorTableOffset,
+    vector_table_address: hex32(vtorUnsigned),
+    vtor_aligned: null,
+    examined_entries: decoded.entries.length,
+    table_file_range: {
+      start: options.vectorTableOffset,
+      end: options.vectorTableOffset + consumedBytes,
+    },
+    coverage,
+    initial_stack_pointer: decoded.initialStackPointer,
+    reset_code_address:
+      resetEntry?.status === "active" ? resetEntry.target_code_address : null,
+    trap_entry_address: null,
+    riscv_table_shape: null,
+    m68k_entries: decoded.entries,
+    active_m68k_entry_count: decoded.activeTargets.length,
+    shared_handler_groups: collectSharedHandlers(decoded.activeTargets),
+    svd_interrupts: summarizeSvdBindings({
+      supplied: options.svdSupplied,
+      activeIrqNumbers: decoded.activeIrqs,
+      svdMap: options.svdMap,
+    }),
+    anomalies,
     limitations,
   };
 };
@@ -451,12 +708,12 @@ const buildArmVectorReport = (
       `Slot 0 InitialSP is ${hex32(initialSpWord)}, which is not an initialized stack pointer.`,
     );
   } else if (initialSpWord !== null && (initialSpWord & 0x3) !== 0) {
-    // SP_main bits [1:0] are RAZ/WI, so the processor would start with a different stack pointer.
     anomalies.push(
       `Slot 0 InitialSP ${hex32(initialSpWord)} is not word-aligned; the processor ignores its low two bits.`,
     );
   }
   return {
+    ...emptySlotCollections(),
     artifact: options.artifact,
     architecture: options.architecture,
     base_address: hex32(baseAddress),
@@ -475,10 +732,7 @@ const buildArmVectorReport = (
     trap_entry_address: null,
     riscv_table_shape: null,
     arm_entries: entries,
-    // Every active entry, and only those, is an active target.
     active_arm_entry_count: activeTargets.length,
-    riscv_slots: [],
-    recognized_riscv_slot_count: 0,
     shared_handler_groups: collectSharedHandlers(activeTargets),
     svd_interrupts: summarizeSvdBindings({
       supplied: options.svdSupplied,
@@ -490,7 +744,7 @@ const buildArmVectorReport = (
   };
 };
 
-/** Decode ARM M-profile or RISC-V interrupt/trap vector slots from `tableBytes`. */
+/** Decode ARM M-profile, ARM A/R, RISC-V, AVR, or M68K interrupt/trap vector slots from `tableBytes`. */
 export const parseFirmwareVectorTable = (
   options: ParseFirmwareVectorTableOptions,
 ): Result<FirmwareVectorTable, ParseFailureError<"malformed">> => {
@@ -498,8 +752,6 @@ export const parseFirmwareVectorTable = (
     options;
   const baseAddress =
     Number.parseInt(options.baseAddressHex.slice(2), 16) >>> 0;
-  // An ARM table starts with the initial stack pointer and Reset; a RISC-V
-  // Direct-mode table can be a single instruction.
   const minimumBytes = minimumVectorTableBytes(architecture);
   if (
     vectorTableOffset >= artifact.bytes ||
@@ -521,9 +773,18 @@ export const parseFirmwareVectorTable = (
       ),
     );
   }
+  if (architecture === "avr") {
+    if (vtorUnsigned >= AVR_PROGRAM_SPACE_END_BYTES) {
+      return err(
+        malformedInput(
+          "firmware-vector-table",
+          `AVR vector table address ${hex32(vtorUnsigned)} exceeds the 22-bit word (8 MiB byte) AVR program address space.`,
+        ),
+      );
+    }
+    return ok(buildAvrVectorReport(options, baseAddress, vtorUnsigned));
+  }
 
-  // Slots past the end of the 32-bit address space have no address; they are
-  // not decoded rather than wrapped to low memory.
   const addressableEntries = Math.floor(
     (ADDRESS_SPACE_END - vtorUnsigned) / WORD_BYTES,
   );
@@ -541,9 +802,8 @@ export const parseFirmwareVectorTable = (
     limitations: [],
     anomalies: [...options.svdSkipped],
   };
-  return ok(
-    architecture === "riscv"
-      ? buildRiscvVectorReport(ctx)
-      : buildArmVectorReport(ctx, architecture),
-  );
+  if (architecture === "riscv") return ok(buildRiscvVectorReport(ctx));
+  if (architecture === "arm-a-r") return ok(buildArmArVectorReport(ctx));
+  if (architecture === "m68k") return ok(buildM68kVectorReport(ctx));
+  return ok(buildArmVectorReport(ctx, architecture));
 };

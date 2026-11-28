@@ -651,3 +651,212 @@ describe("stored vector-table slot counts", () => {
     ).toBe(false);
   });
 });
+
+describe("parseFirmwareVectorTable ARM A/R, AVR, and M68000", () => {
+  it("disassembles classic ARM A/R B, LDR pc literal-pool loads (including Thumb interworking), self-loops, and exception returns", () => {
+    const buf = Buffer.alloc(64, 0);
+    // Slot 0 (0x00 Reset): B 0x100 -> offset = (0x100 - 8) / 4 = 0x3e -> 0xea00003e
+    buf.writeUInt32LE(0xea00_003e, 0);
+    // Slot 1 (0x04 Undefined): B . (self-loop 0xeafffffe)
+    buf.writeUInt32LE(0xeaff_fffe, 4);
+    // Slot 2 (0x08 SVC): LDR pc, [pc, #0x18] -> pool at 0x08 + 8 + 0x18 = 0x28 -> 0xe59ff018
+    buf.writeUInt32LE(0xe59f_f018, 8);
+    // Slot 3 (0x0c PrefetchAbort): LDR pc, [pc, #0x18] -> pool at 0x0c + 8 + 0x18 = 0x2c (shared handler)
+    buf.writeUInt32LE(0xe59f_f018, 12);
+    // Slot 4 (0x10 DataAbort): LDR pc, [pc, #0x14] -> pool at 0x10 + 8 + 0x14 = 0x2c (shared handler)
+    buf.writeUInt32LE(0xe59f_f014, 16);
+    // Slot 5 (0x14 Reserved): 0
+    buf.writeUInt32LE(0x0000_0000, 20);
+    // Slot 6 (0x18 IRQ): SUBS pc, lr, #4 -> 0xe25ef004
+    buf.writeUInt32LE(0xe25e_f004, 24);
+    // Slot 7 (0x1c FIQ): MOV pc, #0x400 -> imm8=1, rot=11 (ror 22 -> 0x400) -> 0xe3a0fb01
+    buf.writeUInt32LE(0xe3a0_fb01, 28);
+    // Literal pool at 0x28: Thumb interworking target 0x00400201 -> code 0x400200
+    buf.writeUInt32LE(0x0040_0201, 0x28);
+    // Literal pool at 0x2c: ARM target 0x00400300
+    buf.writeUInt32LE(0x0040_0300, 0x2c);
+
+    const parsed = parseFirmwareVectorTable({
+      artifact: {
+        path: "/tmp/arm9.bin",
+        sha256: "b".repeat(64),
+        bytes: buf.length,
+      },
+      architecture: "arm-a-r",
+      baseAddressHex: "0x00000000",
+      vectorTableOffset: 0,
+      maxEntries: 16,
+      tableBytes: buf,
+      svdSupplied: false,
+      svdMap: new Map(),
+      svdSkipped: [],
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const r = parsed.value;
+    expect(firmwareVectorTableSchema.safeParse(r).success).toBe(true);
+    expect(vectorTableCountsMatch(r)).toBe(true);
+    expect(r.vtor_aligned).toBe(true);
+    expect(r.examined_entries).toBe(8);
+    expect(r.reset_code_address).toBe("0x100");
+    expect(r.recognized_arm_ar_slot_count).toBe(6);
+    expect(r.table_file_range).toEqual({ start: 0, end: 0x30 });
+    expect(r.arm_ar_slots[1]).toMatchObject({
+      name: "UndefinedInstruction",
+      encoding: "b",
+      self_loop: true,
+      target_code_address: "0x4",
+    });
+    expect(r.arm_ar_slots[2]).toMatchObject({
+      name: "SupervisorCall",
+      encoding: "ldr_pc_literal",
+      literal_pool_address: "0x28",
+      literal_word: "0x400201",
+      thumb_interworking: true,
+      target_code_address: "0x400200",
+    });
+    expect(r.arm_ar_slots[6]).toMatchObject({
+      name: "IRQ",
+      encoding: "exception_return",
+      decoded_mnemonic: "subs pc, lr, #0x4",
+      target_code_address: null,
+    });
+    expect(r.arm_ar_slots[7]).toMatchObject({
+      name: "FIQ",
+      encoding: "mov_pc_imm",
+      target_code_address: "0x400",
+    });
+    expect(r.shared_handler_groups).toEqual([
+      {
+        target_code_address: "0x400300",
+        slot_count: 2,
+        slot_indices: [3, 4],
+      },
+    ]);
+  });
+
+  it("disassembles AVR 4-byte JMP and 2-byte RJMP/RETI flash interrupt vectors", () => {
+    const svd = parseSvdInterruptMap(
+      "<device><peripherals><peripheral><name>EXT</name><interrupt><name>INT0</name><value>0</value></interrupt></peripheral></peripherals></device>",
+    );
+    if (!svd.ok) throw svd.error;
+
+    // 4-byte ATmega328P-style vector slots
+    const mega = Buffer.alloc(16, 0);
+    // Slot 0 RESET: JMP word 0x0040 -> byte 0x80 (0x940c, 0x0040)
+    mega.writeUInt16LE(0x940c, 0);
+    mega.writeUInt16LE(0x0040, 2);
+    // Slot 1 IRQ 0 (INT0): RJMP +0x20 words from PC+2 (4 + 2 + 64 = 70 = 0x46), padded with NOP 0x0000
+    mega.writeUInt16LE(0xc020, 4);
+    mega.writeUInt16LE(0x0000, 6);
+    // Slot 2 IRQ 1: JMP word 0x0050 -> byte 0xa0 (shared bad_interrupt)
+    mega.writeUInt16LE(0x940c, 8);
+    mega.writeUInt16LE(0x0050, 10);
+    // Slot 3 IRQ 2: RETI (0x9518, 0x0000)
+    mega.writeUInt16LE(0x9518, 12);
+    mega.writeUInt16LE(0x0000, 14);
+
+    const parsed = parseFirmwareVectorTable({
+      artifact: {
+        path: "/tmp/atmega328p.bin",
+        sha256: "c".repeat(64),
+        bytes: mega.length,
+      },
+      architecture: "avr",
+      baseAddressHex: "0x00000000",
+      vectorTableOffset: 0,
+      maxEntries: 4,
+      tableBytes: mega,
+      svdSupplied: true,
+      svdMap: svd.value.byIrq,
+      svdSkipped: [],
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const r = parsed.value;
+    expect(firmwareVectorTableSchema.safeParse(r).success).toBe(true);
+    expect(vectorTableCountsMatch(r)).toBe(true);
+    expect(r.avr_slot_bytes).toBe(4);
+    expect(r.reset_code_address).toBe("0x80");
+    expect(r.recognized_avr_slot_count).toBe(3);
+    expect(r.avr_slots[0]).toMatchObject({
+      name: "RESET",
+      encoding: "jmp",
+      target_code_address: "0x80",
+    });
+    expect(r.avr_slots[1]).toMatchObject({
+      irq_number: 0,
+      name: "INT0",
+      name_basis: "explicit_profile",
+      encoding: "rjmp",
+      target_code_address: "0x46",
+    });
+    expect(r.avr_slots[3]).toMatchObject({
+      irq_number: 2,
+      encoding: "reti",
+      target_code_address: null,
+    });
+  });
+
+  it("decodes Motorola 68000 big-endian exception, autovector, TRAP, and user vectors while flagging odd addresses", () => {
+    const buf = Buffer.alloc(68 * 4, 0);
+    buf.writeUInt32BE(0x00ff_fffe, 0); // Slot 0 InitialSSP (even)
+    buf.writeUInt32BE(0x0000_0400, 4); // Slot 1 Reset
+    buf.writeUInt32BE(0x0000_0500, 8); // Slot 2 BusError (shared default)
+    buf.writeUInt32BE(0x0000_0500, 12); // Slot 3 AddressError (shared default)
+    buf.writeUInt32BE(0x0000_0601, 4 * 4); // Slot 4 IllegalInstruction -> ODD address anomaly!
+    buf.writeUInt32BE(0x0000_0700, 28 * 4); // Slot 28 Level4Autovector (VBlank on Mega Drive)
+    buf.writeUInt32BE(0x0000_0800, 32 * 4); // Slot 32 TRAP0
+    buf.writeUInt32BE(0x0000_0900, 64 * 4); // Slot 64 User vector 0
+
+    const parsed = parseFirmwareVectorTable({
+      artifact: {
+        path: "/tmp/m68k.bin",
+        sha256: "d".repeat(64),
+        bytes: buf.length,
+      },
+      architecture: "m68k",
+      baseAddressHex: "0x00000000",
+      vectorTableOffset: 0,
+      maxEntries: 68,
+      tableBytes: buf,
+      svdSupplied: false,
+      svdMap: new Map(),
+      svdSkipped: [],
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const r = parsed.value;
+    expect(firmwareVectorTableSchema.safeParse(r).success).toBe(true);
+    expect(vectorTableCountsMatch(r)).toBe(true);
+    expect(r.initial_stack_pointer).toBe("0xfffffe");
+    expect(r.reset_code_address).toBe("0x400");
+    expect(r.active_m68k_entry_count).toBe(6);
+    expect(r.m68k_entries[4]).toMatchObject({
+      name: "IllegalInstruction",
+      status: "invalid_odd_code_address",
+      target_code_address: "0x601",
+    });
+    expect(r.m68k_entries[28]).toMatchObject({
+      name: "Level4Autovector",
+      status: "active",
+      target_code_address: "0x700",
+    });
+    expect(r.m68k_entries[32]).toMatchObject({
+      kind: "trap_vector",
+      name: "TRAP0",
+      status: "active",
+      target_code_address: "0x800",
+    });
+    expect(r.m68k_entries[64]).toMatchObject({
+      kind: "user_device_vector",
+      irq_number: 0,
+      status: "active",
+      target_code_address: "0x900",
+    });
+    expect(r.anomalies.some((a) => a.includes("odd address 0x601"))).toBe(true);
+  });
+});
