@@ -118,14 +118,12 @@ it("inventories and extracts a signed MCUboot image with protected and unprotect
       .map((row) => [row.logical_path, row.source_location]),
   );
   expect(regions).toEqual({
-    "payload.bin": { kind: "byte_range", offset: 512, length: payload.length },
+    "payload.bin": { offset: 512, length: payload.length },
     "protected-tlv.bin": {
-      kind: "byte_range",
       offset: 512 + payload.length,
       length: 28,
     },
     "tlv.bin": {
-      kind: "byte_range",
       offset: 512 + payload.length + 28,
       length: image.length - (512 + payload.length + 28),
     },
@@ -233,7 +231,8 @@ it("marks encrypted MCUboot payloads unavailable without leaking wrapped key byt
       ],
     });
     await expect(reader.open(entries[0]!)).rejects.toMatchObject({
-      reason: "encrypted",
+      reason: "unavailable",
+      message: expect.stringMatching(/Encrypted MCUboot/u),
     });
     const tlvBytes = await buffer(await reader.open(entries[1]!));
     expect(tlvBytes.byteLength).toBeGreaterThan(4);

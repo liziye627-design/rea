@@ -49,6 +49,7 @@ import { MegaDriveRomArtifactReader } from "./MegaDriveRomArtifactReader.js";
 import { N64RomArtifactReader } from "./N64RomArtifactReader.js";
 import { NdsRomArtifactReader } from "./NdsRomArtifactReader.js";
 import { Iso9660ArtifactReader } from "./Iso9660ArtifactReader.js";
+import { Image4ArtifactReader } from "./Image4ArtifactReader.js";
 import { QualcommMbnArtifactReader } from "./QualcommMbnArtifactReader.js";
 import { HexRecordArtifactReader } from "./HexRecordArtifactReader.js";
 import { MachOSliceArtifactReader } from "./MachOSliceArtifactReader.js";
@@ -788,6 +789,16 @@ const NON_ZIP_FORMATS = {
     readerLimitation: MCUBOOT_INVENTORY_SCOPE,
     createReader: (path, options) =>
       new McubootArtifactReader(path, sourceOf(options), options.integrity),
+  }),
+  "apple-img4": container("apple-img4", {
+    roleContainer: true,
+    retainClassifiedSource: true,
+    extractable: true,
+    absentInventory: "unavailable",
+    readerLimitation:
+      "Image4 inventory reports IM4P, IM4M and IMG4 structure. Payload bytes are ranged as stored. Keybags are reported and not decrypted. Signatures and certificates are not checked. Compressed payloads are not expanded.",
+    createReader: (path, options) =>
+      new Image4ArtifactReader(path, sourceOf(options)),
   }),
   "qualcomm-mbn": container("qualcomm-mbn", {
     roleContainer: true,

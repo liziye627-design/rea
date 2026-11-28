@@ -947,7 +947,13 @@ ComLoader rejects records `loader: "BinaryLoader"`, `load_address: "1000:0100"`
 (linear `0x10100`), and `loader_fallback.reason`. Segment context is imposed for
 analysis. PSP contents, stack, and device state remain unmodeled. See [DOS guide](https://github.com/morluto/rea/blob/main/docs/providers/ghidra-dos.md).
 
-Use `inspect_byte_entropy` to triage high- and low-entropy ranges before extraction.
+Use `inspect_byte_entropy` to triage high- and low-entropy ranges before extraction,
+and `inspect_firmware_vector_table` (`rea inspect-firmware-vector-table PATH --architecture ARCH --base-address HEX`)
+to decode ARM M-profile exception/IRQ tables for the raw-image variant names
+(`armv6-m` through `armv8.1-m.main`)
+or RISC-V `mtvec` jump slots, flag clear Thumb bit-0 anomalies and shared dummy
+handlers, and optionally bind CMSIS-SVD `<interrupt>` names via `svd_xml`.
+See [firmware vector tables](https://github.com/morluto/rea/blob/main/docs/guides/firmware/firmware-vector-tables.md).
 For ESP32/ESP8266 flash dumps or carved `partitions/nvs.bin` files (`esp-nvs`), use
 `inspect_esp_nvs` (`rea inspect-esp-nvs PATH [--partition-offset N] [--partition-bytes N]`)
 to decode ESP-IDF v1/v2 Non-Volatile Storage pages, CRC32 checksums, namespaces,
@@ -1172,6 +1178,30 @@ program header hash offsets) but still resolve as ELF for native analysis.
 Signatures and certificates are located, not verified; hashes are not
 recomputed. See
 [Qualcomm MBN images](https://github.com/morluto/rea/blob/main/docs/guides/firmware/qualcomm-mbn-images.md).
+
+MCUboot firmware images (`0x96f3b83d` at offset 0; legacy `0x96f3b83c` v1 is
+refused) use `inspect_artifact` and `extract_artifact` (`mcuboot`). Root
+metadata records `load_address`, `header_size`, `protected_tlv_size`,
+`image_size`, decoded `flag_names` and `unknown_flags`, `version`,
+`security_counter`, `dependencies`, bounded `tlv_records`, `unverified`
+signature summaries, and plaintext SHA-256/384/512 digest verdicts over
+`header + payload + protected_tlv` (governed by `integrity_policy`). Entries
+are `payload.bin` and optional `protected-tlv.bin` / `tlv.bin`. Encrypted
+images (`encrypted-aes128`/`256` or `ENC_*` TLVs) mark `payload.bin` encrypted
+without exporting wrapped keys and refuse payload extraction; compressed flags
+leave `payload.bin` stored. Extract an unencrypted `payload.bin` and open it as
+`raw-binary` at the post-header slot address. See
+[MCUboot images](https://github.com/morluto/rea/blob/main/docs/guides/firmware/mcuboot-images.md).
+
+Image4 firmware containers (`IMG4`, `IM4P`, `IM4M`) use the same inspection
+and extraction workflows. Recognition is the DER SEQUENCE magic, not the
+filename. `payload` is the stored octet string. `manifest.der` and
+`restore-info.der` are the embedded IM4M and IM4R sequences. Keybags are
+reported as a count and key types; nothing is decrypted, and an encrypted
+payload is refused on open. Signatures and certificates are sized and not
+checked. LZFSE (`bvx2`, `bvx1`, `bvxn`, `bvx-`) and `complzss` payloads stay compressed. IM4R property names
+such as `BNCN` are listed and their values stay redacted. See
+[Image4 containers](https://github.com/morluto/rea/blob/main/docs/guides/apple/image4-containers.md).
 
 Android A/B OTA `payload.bin` files (CrAU v2) use the same
 inspection/extraction workflows. Prefer a retained summary for header,

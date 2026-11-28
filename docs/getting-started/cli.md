@@ -573,6 +573,16 @@ See [MCUboot images](../guides/firmware/mcuboot-images.md) for header and TLV
 fields, plaintext digest checks, encrypted payload handling and raw-binary
 hand-off.
 
+Inventory and extract an Image4 firmware container:
+
+```sh
+rea inspect-artifact ./kernelcache.im4p --json
+rea extract-artifact ./kernelcache.im4p --json
+```
+
+See [Image4 containers](../guides/apple/image4-containers.md) for IM4P, IM4M
+and IMG4 facts, keybag reporting, and what is not decrypted.
+
 Inspect local model declarations without loading weights:
 
 ```bash

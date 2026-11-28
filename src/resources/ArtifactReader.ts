@@ -294,6 +294,7 @@ export interface ArtifactReader {
     | "fit"
     | "mcuboot"
     | "qualcomm-mbn"
+    | "apple-img4"
     | "ntfs-mft"
     | "systemd-journal"
     | "auditd-log"
