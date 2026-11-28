@@ -537,6 +537,37 @@ describe("Ghidra provider", () => {
       code: "target_format_unsupported",
     });
   });
+  it("admits TI MSP430 ELF32 little-endian targets through the header-driven lane", async () => {
+    const parsed = parseExecutableHeader(elf(1, 1, 105), "x64");
+    if (!parsed.ok) throw new Error("Expected valid MSP430 ELF target");
+    const target: BinaryTarget = {
+      path: "/tmp/meter.elf",
+      sha256: "a".repeat(64),
+      kind: "executable",
+      ...parsed.value,
+    };
+    const ghidra = provider();
+    expect(ghidra.inspectTargetSupport(target)).toMatchObject({
+      status: "supported",
+    });
+    const resolved = await ghidra.resolveAnalysisProfile(target);
+    expect(resolved.ok && resolved.value).toMatchObject({
+      profile: {
+        parameters: {
+          target_format: "elf",
+          architecture: "msp430",
+          loader: "auto-from-header",
+          language_id: "auto-from-header",
+          compiler_spec_id: "auto-default",
+        },
+      },
+    });
+    const windows = provider(installationHost("win32"));
+    expect(windows.inspectTargetSupport(target)).toMatchObject({
+      status: "unsupported",
+      code: "target_format_unsupported",
+    });
+  });
   it("re-observes the exact installation for each fresh task without launching Ghidra", async () => {
     let probeCount = 0;
     const host: GhidraInstallationHost = {
@@ -784,6 +815,7 @@ describe("Ghidra Mach-O slice support", () => {
         "powerpc",
         "hexagon",
         "xtensa",
+        "msp430",
         "6502",
         "m68k",
       ]),

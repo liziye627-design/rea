@@ -113,6 +113,7 @@ const GHIDRA_ARCHITECTURES = {
   m68k: true,
   hexagon: true,
   xtensa: true,
+  msp430: true,
 } as const satisfies Record<BinaryArchitecture, boolean>;
 
 /** Names every admitted family, so the refusal cannot drift from the set. */
