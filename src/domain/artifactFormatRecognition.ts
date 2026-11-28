@@ -6,6 +6,10 @@ import { hasBinaryPlistSignature } from "./apple/appleArchiveFormat.js";
 import { hasDfuSePrefix, isDfuSeFile } from "./firmware/dfuse.js";
 import { ESP8266_REFUSAL, recognizeEspImage } from "./firmware/espImage.js";
 import { hasFitImagesNode } from "./firmware/fitImage.js";
+import {
+  MCUBOOT_V1_REFUSAL,
+  recognizeMcubootPrefix,
+} from "./firmware/mcuboot.js";
 import { detectHexRecordEncoding } from "./firmware/hexRecords.js";
 import { hasUf2Block } from "./firmware/uf2.js";
 import { hasGodotPckHeader } from "./godotPckFormat.js";
@@ -95,6 +99,7 @@ export type RecognizedArtifactFormat = Extract<
   | "esp-flash-image"
   | "esp-image"
   | "fit"
+  | "mcuboot"
   | "qualcomm-mbn"
   | "ntfs-mft"
   | "systemd-journal"
@@ -240,6 +245,13 @@ export const ARTIFACT_FORMAT_RECOGNIZERS: readonly ArtifactFormatRecognizer[] =
     when("bink2", hasBink2Header),
     when("vulkan-pipeline-cache", hasVulkanPipelineCacheHeader),
     when("uimage", hasUImageMagic),
+    ({ prefix }) => {
+      const mcuboot = recognizeMcubootPrefix(prefix);
+      if (mcuboot === undefined) return undefined;
+      return mcuboot === "mcuboot"
+        ? { state: "recognized", format: "mcuboot" }
+        : { state: "refused", format: "mcuboot", reason: MCUBOOT_V1_REFUSAL };
+    },
     when("nso", hasNsoMagic),
     when("nro", hasNroMagic),
     when("android-boot-image", hasAndroidBootImageMagic),

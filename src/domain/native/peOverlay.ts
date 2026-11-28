@@ -80,6 +80,7 @@ export const PE_OVERLAY_LEADING_FORMATS = [
   "unityfs",
   "wxapkg",
   "uimage",
+  "mcuboot",
   "nso",
   "nro",
   "android-boot-image",

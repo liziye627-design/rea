@@ -292,6 +292,7 @@ export interface ArtifactReader {
     | "bflt"
     | "esp-flash-image"
     | "fit"
+    | "mcuboot"
     | "qualcomm-mbn"
     | "ntfs-mft"
     | "systemd-journal"

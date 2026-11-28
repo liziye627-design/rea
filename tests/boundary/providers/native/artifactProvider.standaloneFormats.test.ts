@@ -24,6 +24,7 @@ import {
 } from "../../../fixtures/espImage.js";
 import { espFlashDump } from "../../../../src/domain/firmware/espFlash.fixture.js";
 import { espIdfCrc32 } from "../../../../src/domain/firmware/espNvsItemDecoder.js";
+import { buildMcubootImage } from "../../../../src/domain/firmware/mcuboot.fixture.js";
 
 const { runProviderAnalysis } = createDirectAnalysis({});
 
@@ -311,4 +312,43 @@ it("routes an ESP flash dump with a populated NVS partition to inspect_esp_nvs",
       rationale: expect.stringContaining("partition_offset 36864"),
     }),
   ]);
+});
+
+it("routes an unencrypted MCUboot image payload to open_binary and omits the probe when encrypted", async () => {
+  const directory = await createTestTempDirectory("rea-standalone-format-");
+  const plainPath = await writeBytes("zephyr.signed.bin", () =>
+    buildMcubootImage({ loadAddress: 0x0802_0000 }),
+  )(directory);
+  const plainEvidence = parseEvidence(
+    await runProviderAnalysis(plainPath, "inspect_artifact", {}).then(
+      projectCliAnalysisResult,
+    ),
+  );
+  const plainInspection = artifactInspectionResultSchema.parse(
+    plainEvidence.normalized_result,
+  );
+  expect(plainInspection.subject.root_format).toBe("mcuboot");
+  expect(plainInspection.next_probes).toEqual([
+    expect.objectContaining({
+      operation: "open_binary",
+      authority: "native-analysis-provider",
+      rationale: expect.stringMatching(
+        /payload\.bin[\s\S]*raw-binary[\s\S]*ih_load_addr/u,
+      ),
+    }),
+  ]);
+
+  const encryptedPath = await writeBytes("zephyr.enc.bin", () =>
+    buildMcubootImage({ flags: 0x04 }),
+  )(directory);
+  const encryptedEvidence = parseEvidence(
+    await runProviderAnalysis(encryptedPath, "inspect_artifact", {}).then(
+      projectCliAnalysisResult,
+    ),
+  );
+  const encryptedInspection = artifactInspectionResultSchema.parse(
+    encryptedEvidence.normalized_result,
+  );
+  expect(encryptedInspection.subject.root_format).toBe("mcuboot");
+  expect(encryptedInspection.next_probes).toEqual([]);
 });

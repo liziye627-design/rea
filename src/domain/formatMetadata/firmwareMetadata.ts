@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { completeOrUnknownCoverageSchema } from "../coverage.js";
+import {
+  MCUBOOT_FLAG_NAMES,
+  MCUBOOT_INLINE_TLV_LIMIT,
+  MCUBOOT_MAGIC,
+} from "../firmware/mcuboot.js";
 import { QUALCOMM_MBN_INLINE_SEGMENT_HASH_LIMIT } from "../qualcommMbnImage.js";
 import {
   byteRange,
@@ -745,3 +750,90 @@ export const qualcommMbnMetadataSchema = z.strictObject({
     .nullable(),
 });
 export type QualcommMbnMetadata = z.infer<typeof qualcommMbnMetadataSchema>;
+
+/**
+ * MCUboot v1/v2 (`0x96f3b83d`) header and TLV facts. Digests are checked against
+ * `header + payload + protected_tlv` when unencrypted; signatures are located
+ * without cryptographic verification, and wrapped encryption keys are excluded.
+ */
+export const mcubootMetadataSchema = z.strictObject({
+  kind: z.literal("mcuboot"),
+  magic: z.literal(MCUBOOT_MAGIC),
+  load_address: uint32,
+  header_size: uint16,
+  protected_tlv_size: uint16,
+  image_size: uint32,
+  flags: uint32,
+  flag_names: z.array(z.enum(MCUBOOT_FLAG_NAMES)),
+  unknown_flags: uint32,
+  version: z.strictObject({
+    major: uint8,
+    minor: uint8,
+    revision: uint16,
+    build_num: uint32,
+    text: z.string(),
+  }),
+  pad1: uint32,
+  encrypted: z.boolean(),
+  compressed: z.boolean(),
+  encryption_tlvs: z.array(z.string()),
+  security_counter: uint32.nullable(),
+  unprotected_tlv_size: uint16.nullable(),
+  trailing_bytes: offset,
+  trailing_erased_only: z.boolean(),
+  digests: z.array(
+    z.strictObject({
+      area: z.enum(["protected", "unprotected"]),
+      algorithm: z.enum(["sha256", "sha384", "sha512"]),
+      declared: z
+        .string()
+        .regex(/^(?:[0-9a-f]{64}|[0-9a-f]{96}|[0-9a-f]{128})$/u),
+      computed: z
+        .string()
+        .regex(/^(?:[0-9a-f]{64}|[0-9a-f]{96}|[0-9a-f]{128})$/u)
+        .nullable(),
+      status: z.enum(["valid", "invalid", "encrypted-unverified"]),
+    }),
+  ),
+  signatures: z.array(
+    z.strictObject({
+      area: z.enum(["protected", "unprotected"]),
+      type: uint16,
+      algorithm: z.string(),
+      length: uint16,
+      keyhash_sha256: sha256Hex.nullable(),
+      status: z.literal("unverified"),
+    }),
+  ),
+  dependencies: z.array(
+    z.strictObject({
+      image_id: uint8,
+      major: uint8,
+      minor: uint8,
+      revision: uint16,
+      build_num: uint32,
+      version_text: z.string(),
+    }),
+  ),
+  tlv_records: z
+    .array(
+      z.strictObject({
+        area: z.enum(["protected", "unprotected"]),
+        index: uint16,
+        type: uint16,
+        type_name: z.string().nullable(),
+        offset,
+        length: uint16,
+      }),
+    )
+    .max(MCUBOOT_INLINE_TLV_LIMIT),
+  omitted_tlv_records: offset,
+});
+export type McubootMetadata = z.infer<typeof mcubootMetadataSchema>;
+
+/** One stored MCUboot region: `payload.bin`, `protected-tlv.bin`, or `tlv.bin`. */
+export const mcubootEntryMetadataSchema = z.strictObject({
+  kind: z.literal("mcuboot-entry"),
+  role: z.enum(["payload", "protected-tlv", "tlv"]),
+});
+export type McubootEntryMetadata = z.infer<typeof mcubootEntryMetadataSchema>;

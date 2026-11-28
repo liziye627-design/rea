@@ -562,6 +562,17 @@ rea extract-artifact ./sbl1.mbn --json
 See [Qualcomm MBN images](../guides/firmware/qualcomm-mbn-images.md) for header
 recognition, regions, hash segments and what is not verified.
 
+Inventory and extract an MCUboot (`0x96f3b83d`) firmware image:
+
+```sh
+rea inspect-artifact ./zephyr.signed.bin --json
+rea extract-artifact ./zephyr.signed.bin --json
+```
+
+See [MCUboot images](../guides/firmware/mcuboot-images.md) for header and TLV
+fields, plaintext digest checks, encrypted payload handling and raw-binary
+hand-off.
+
 Inspect local model declarations without loading weights:
 
 ```bash

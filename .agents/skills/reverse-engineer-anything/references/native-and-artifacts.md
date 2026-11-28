@@ -1173,6 +1173,20 @@ Signatures and certificates are located, not verified; hashes are not
 recomputed. See
 [Qualcomm MBN images](https://github.com/morluto/rea/blob/main/docs/guides/firmware/qualcomm-mbn-images.md).
 
+MCUboot firmware images (`0x96f3b83d` at offset 0; legacy `0x96f3b83c` v1 is
+refused) use `inspect_artifact` and `extract_artifact` (`mcuboot`). Root
+metadata records `load_address`, `header_size`, `protected_tlv_size`,
+`image_size`, decoded `flag_names` and `unknown_flags`, `version`,
+`security_counter`, `dependencies`, bounded `tlv_records`, `unverified`
+signature summaries, and plaintext SHA-256/384/512 digest verdicts over
+`header + payload + protected_tlv` (governed by `integrity_policy`). Entries
+are `payload.bin` and optional `protected-tlv.bin` / `tlv.bin`. Encrypted
+images (`encrypted-aes128`/`256` or `ENC_*` TLVs) mark `payload.bin` encrypted
+without exporting wrapped keys and refuse payload extraction; compressed flags
+leave `payload.bin` stored. Extract an unencrypted `payload.bin` and open it as
+`raw-binary` at the post-header slot address. See
+[MCUboot images](https://github.com/morluto/rea/blob/main/docs/guides/firmware/mcuboot-images.md).
+
 Android A/B OTA `payload.bin` files (CrAU v2) use the same
 inspection/extraction workflows. Prefer a retained summary for header,
 partition table, dynamic groups and signature counts. Signatures are not

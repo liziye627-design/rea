@@ -42,6 +42,8 @@ import {
   fitMetadataSchema,
   hexRecordRegionMetadataSchema,
   hexRecordsMetadataSchema,
+  mcubootEntryMetadataSchema,
+  mcubootMetadataSchema,
   qualcommMbnMetadataSchema,
   uf2MetadataSchema,
   uf2RegionMetadataSchema,
@@ -130,6 +132,8 @@ export const artifactFormatMetadataSchema = z.discriminatedUnion("kind", [
   espFlashPartitionMetadataSchema,
   fitMetadataSchema,
   fitImageMetadataSchema,
+  mcubootMetadataSchema,
+  mcubootEntryMetadataSchema,
   qualcommMbnMetadataSchema,
   androidBootImageMetadataSchema,
   androidBootImageEntryMetadataSchema,
@@ -542,6 +546,14 @@ const declarationsByKind: {
   fit: {
     notCompared:
       "Its fields come from the FIT's own bytes, which content comparison covers.",
+  },
+  mcuboot: {
+    notCompared:
+      "Its header and TLV facts come from the image's own bytes, which content comparison covers.",
+  },
+  "mcuboot-entry": {
+    notCompared:
+      "role restates the entry's path; stored bytes are compared by content when unencrypted.",
   },
   "qualcomm-mbn": {
     notCompared:

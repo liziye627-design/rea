@@ -26,6 +26,11 @@ import { dfuseFile } from "./firmware/dfuse.fixture.js";
 import { DFUSE_SUFFIX_BYTES } from "./firmware/dfuse.js";
 import { ESP8266_REFUSAL } from "./firmware/espImage.js";
 import { espIdfCrc32 } from "./firmware/espNvsItemDecoder.js";
+import {
+  MCUBOOT_LEGACY_V1_MAGIC,
+  MCUBOOT_V1_REFUSAL,
+} from "./firmware/mcuboot.js";
+import { buildMcubootImage } from "./firmware/mcuboot.fixture.js";
 import { twoVolumeUbiImage } from "./firmware/ubiImage.fixture.js";
 import { buildIso9660Image } from "./iso9660/iso9660.fixture.js";
 import { ISO9660_DESCRIPTOR_OFFSET } from "./iso9660/iso9660Structures.js";
@@ -93,6 +98,12 @@ it.each([
     bytes: twoVolumeUbiImage().subarray(0, 32),
     format: "ubi-image",
     reason: expect.stringContaining("erase-counter header is truncated"),
+  },
+  {
+    label: "a legacy MCUboot v1 image",
+    bytes: buildMcubootImage({ magic: MCUBOOT_LEGACY_V1_MAGIC }),
+    format: "mcuboot",
+    reason: MCUBOOT_V1_REFUSAL,
   },
 ])("refuses $label in one place", (row) => {
   expect(recognize(row.bytes)).toEqual({
@@ -560,4 +571,11 @@ it("recognizes a standalone ESP-IDF NVS partition and ignores erased or unaligne
       espFlashLayout: false,
     }),
   ).toBeUndefined();
+});
+
+it("recognizes an MCUboot 0x96f3b83d image prefix", () => {
+  expect(recognize(buildMcubootImage())).toMatchObject({
+    state: "recognized",
+    format: "mcuboot",
+  });
 });

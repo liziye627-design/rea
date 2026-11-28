@@ -8,6 +8,7 @@ import type { EspFlashSelection } from "../domain/firmware/espFlashLocation.js";
 import { ANDROID_OTA_PAYLOAD_LIMITATIONS } from "../domain/firmware/androidOtaPayload.js";
 import { ANDROID_SPARSE_IMAGE_LIMITATIONS } from "../domain/firmware/androidSparseImage.js";
 import { ESP_IMAGE_LIMITATIONS } from "../domain/firmware/espImageFacts.js";
+import { MCUBOOT_INVENTORY_SCOPE } from "../domain/firmware/mcuboot.js";
 import { UBI_IMAGE_LIMITATIONS } from "../domain/firmware/ubiImage.js";
 import {
   ZIP_PACKAGE_FORMATS,
@@ -40,6 +41,7 @@ import {
 } from "./EspFlashImageArtifactReader.js";
 import { EspImageArtifactReader } from "./EspImageArtifactReader.js";
 import { FitArtifactReader } from "./FitArtifactReader.js";
+import { McubootArtifactReader } from "./McubootArtifactReader.js";
 import type { GodotPckAdmission } from "./GodotPckLocation.js";
 import { GodotPckArtifactReader } from "./GodotPckArtifactReader.js";
 import { InesArtifactReader } from "./InesArtifactReader.js";
@@ -777,6 +779,15 @@ const NON_ZIP_FORMATS = {
       "FIT inventory reports each /images node's stored bytes and its declared type, architecture, OS, compression, load and entry. Image data is not decompressed or decrypted, signatures are not verified, nothing is executed, and load and entry addresses are declarations.",
     createReader: (path, options) =>
       new FitArtifactReader(path, sourceOf(options), options.integrity),
+  }),
+  mcuboot: container("mcuboot", {
+    roleContainer: true,
+    retainClassifiedSource: true,
+    extractable: true,
+    absentInventory: "unavailable",
+    readerLimitation: MCUBOOT_INVENTORY_SCOPE,
+    createReader: (path, options) =>
+      new McubootArtifactReader(path, sourceOf(options), options.integrity),
   }),
   "qualcomm-mbn": container("qualcomm-mbn", {
     roleContainer: true,

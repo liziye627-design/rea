@@ -163,6 +163,7 @@ const TARGETS: TargetFixtures = {
     espFlash: { selected: true, flashOffset: null, partitionTableOffset: null },
   },
   fit: { ...archive, format: "fit" },
+  mcuboot: { ...archive, format: "mcuboot" },
   "ntfs-mft": { ...archive, format: "ntfs-mft" },
   "systemd-journal": { ...archive, format: "systemd-journal" },
   "auditd-log": { ...archive, format: "auditd-log" },

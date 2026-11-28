@@ -641,3 +641,14 @@ headers declare a Qualcomm hash segment is inventoried as `qualcomm-mbn` with it
 table and per program header hash offsets, while binary target resolution
 still reads it as ELF. Signatures and certificates are located, not verified,
 and hashes are not recomputed. See [Qualcomm MBN images](qualcomm-mbn-images.md).
+
+## Inspect MCUboot images
+
+`inspect-artifact` / `extract-artifact` recognize a little-endian `0x96f3b83d`
+MCUboot image (`imgtool` / Zephyr / Mynewt / ESP-IDF MCUboot builds) by magic
+and refuse legacy `0x96f3b83c` v1 images. Root facts record header sizes, load
+address, flags, version, security counter, image dependencies, inline TLV
+summaries, unverified signature metadata, and plaintext SHA-256/384/512 digest
+checks over `header + payload + protected_tlv`. Encrypted images keep
+`payload.bin` marked `encrypted` without exporting wrapped key bytes or
+permitting extraction. See [MCUboot images](mcuboot-images.md).

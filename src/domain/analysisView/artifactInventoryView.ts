@@ -411,6 +411,7 @@ export const projectArtifactInventoryView = (
     inventory.manifest.root_format === "bflt" ||
     inventory.manifest.root_format === "esp-flash-image" ||
     inventory.manifest.root_format === "fit" ||
+    inventory.manifest.root_format === "mcuboot" ||
     inventory.manifest.root_format === "nds" ||
     inventory.manifest.root_format === "mega-drive-rom" ||
     inventory.manifest.root_format === "n64-rom" ||

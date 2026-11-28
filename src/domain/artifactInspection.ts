@@ -471,6 +471,22 @@ const formatProbes = (
   if (format === "esp-flash-image") return espFlashImageProbes(inventory);
   if (format === "zip") return zipPackageProbes(inventory);
   if (format === "fit") return fitProbes(inventory);
+  if (format === "mcuboot")
+    return inventory.occurrences.some(
+      (row) =>
+        row.format_metadata?.kind === "mcuboot-entry" &&
+        row.format_metadata.role === "payload" &&
+        !row.encrypted,
+    )
+      ? [
+          {
+            operation: "open_binary",
+            rationale:
+              'Extract payload.bin with extract_artifact, then open it as raw-binary (for ARM Cortex-M firmware, supply architecture: "arm", architecture_variant, and base_address set to ih_load_addr when ram-load is set or slot_base + header_size for XIP).',
+            authority: "native-analysis-provider",
+          },
+        ]
+      : [];
   if (format === "android-dtbo") return androidDtboProbes(inventory);
   if (format === "directory") return directoryProbes(inventory);
   if (format === "pe")

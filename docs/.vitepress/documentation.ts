@@ -484,6 +484,11 @@ export const documentationSections = [
         route: "/qualcomm-mbn-images",
       },
       {
+        text: "MCUboot images",
+        source: "guides/firmware/mcuboot-images.md",
+        route: "/mcuboot-images",
+      },
+      {
         text: "Intel HEX and S-record images",
         source: "hex-records.md",
         route: "/hex-records",
