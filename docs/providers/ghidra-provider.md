@@ -33,9 +33,11 @@ undefined. Installation `application.properties` has a fixed 1 MiB read allowanc
 with no runtime override. The failure retains that allowance and directs recovery
 at the selected installation metadata.
 
-Xtensa ELF files (`EM_XTENSA = 94`) use the header-selected Ghidra import
-language and report the canonical `xtensa` architecture in CLI/MCP results.
-Processor extensions and calling-convention compatibility remain specific to
+Xtensa ELF files (`EM_XTENSA = 94`) and ELF32 little-endian Atmel/Microchip AVR
+files (`EM_AVR = 83`) use the header-selected Ghidra import language and report
+the canonical `xtensa` or `avr` architecture in CLI/MCP results. Processor
+extensions (including `e_flags`-selected `avr8` core variants such as
+`atmega256` and `xmega`) and calling-convention compatibility remain specific to
 the selected Ghidra language; family recognition alone does not establish them.
 
 Retained process diagnostics can report termination by `SIGKILL`; the signal alone

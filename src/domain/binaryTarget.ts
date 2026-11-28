@@ -89,6 +89,11 @@ export type ExecutableMetadata =
       readonly availableArchitectures: readonly "xtensa"[];
     }
   | {
+      readonly format: "elf";
+      readonly architecture: "avr";
+      readonly availableArchitectures: readonly "avr"[];
+    }
+  | {
       readonly format: "mach-o";
       readonly architecture: "arm64_32";
       readonly availableArchitectures: readonly "arm64_32"[];
@@ -567,6 +572,12 @@ const parseElf = (
       availableArchitectures: [architecture],
     });
   if (architecture === "xtensa")
+    return ok({
+      format: "elf",
+      architecture,
+      availableArchitectures: [architecture],
+    });
+  if (architecture === "avr")
     return ok({
       format: "elf",
       architecture,

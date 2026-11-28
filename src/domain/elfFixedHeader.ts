@@ -110,17 +110,20 @@ export const admitElfFixedHeaderFacts = (
     flags: facts.flags,
     osAbi: facts.osAbi,
     abiVersion: facts.abiVersion,
-    architecture: elfArchitecture(facts.machine, facts.elfClass) ?? null,
+    architecture:
+      elfArchitecture(facts.machine, facts.elfClass, facts.byteOrder) ?? null,
   });
 };
 
 /**
- * The CPU family an ELF machine names, with class checks where required.
- * Callers that read only the machine retain their historical inventory labels.
+ * The CPU family an ELF machine names, with class and byte-order checks where
+ * required. Callers that read only the machine retain their historical
+ * inventory labels.
  */
 export const elfArchitecture = (
   machine: number,
   elfClass?: 32 | 64,
+  byteOrder?: "little" | "big",
 ): ElfArchitecture | undefined => {
   switch (machine) {
     case 3:
@@ -137,6 +140,11 @@ export const elfArchitecture = (
       return elfClass === 64 ? "powerpc" : undefined;
     case 40:
       return "arm";
+    case 83: // EM_AVR: Atmel/Microchip AVR 8-bit MCU ELF32 little-endian objects.
+      return (elfClass === undefined || elfClass === 32) &&
+        (byteOrder === undefined || byteOrder === "little")
+        ? "avr"
+        : undefined;
     case 164: // EM_HEXAGON: Qualcomm Hexagon DSP (QDSP6).
       return "hexagon";
     case 94: // EM_XTENSA: Tensilica Xtensa.

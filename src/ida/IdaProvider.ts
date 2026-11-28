@@ -69,6 +69,7 @@ const IDA_ARCHITECTURES = {
   m68k: "unsupported",
   hexagon: "ghidra",
   xtensa: "unsupported",
+  avr: "ghidra",
 } as const satisfies Record<
   BinaryArchitecture,
   "supported" | "unsupported" | "ghidra"
