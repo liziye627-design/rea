@@ -87,6 +87,52 @@ describe("6502 raw-binary admission", () => {
   );
 });
 
+describe("z80 raw-binary admission", () => {
+  it("admits byte-aligned z80 images up to the 16-bit address boundary", () => {
+    for (const [entryPoint, fileBytes] of [
+      ["0x0", 65536],
+      ["0x100", 8],
+      ["0x8001", 8],
+      ["0xffff", 1],
+    ] as const) {
+      const result = admitRawBinary({
+        architecture: "z80",
+        entryPoint,
+        fileBytes,
+      });
+      if (!result.ok) throw new Error(result.error.reason);
+      expect(result.value).toEqual({
+        architecture: "z80",
+        load: {
+          baseAddress: entryPoint,
+          entryPoint,
+          entrySource: { kind: "caller" },
+        },
+      });
+    }
+  });
+  it.each([
+    ["0x10000", 1],
+    ["0xffff", 2],
+    ["0x0", 65537],
+  ])(
+    "rejects a z80 mapping at %s with %i bytes that exceeds 16 bits",
+    (entryPoint, fileBytes) => {
+      const result = admitRawBinary({
+        architecture: "z80",
+        entryPoint,
+        fileBytes,
+      });
+      if (result.ok) throw new Error("expected 16-bit overflow rejection");
+      expect(result.error).toEqual({
+        reason: `raw-binary mapping from ${entryPoint} must fit in the z80 address width`,
+        constraint: "load_selection_rejected",
+        field: "entry_point",
+      });
+    },
+  );
+});
+
 describe("raw-binary admission", () => {
   it("admits a little-endian ARM image mapped at the caller entry", () => {
     expect(
@@ -296,7 +342,7 @@ describe("raw-binary admission results", () => {
   // constraint. First computed at d6f88becd (930f0a2a9fbab817…); recomputed
   // after main's #10683 added the Thumb note to odd ARM entry refusals.
   const ADMISSION_GRID_SHA256 =
-    "ccc75843c2abfca5c4eb3dc192dbb2534361a8e760a9e8dc58f1b3c28fadbd65";
+    "1c03283f00cb10aef8f52f65c2a8c2e9c4ec2f20c48c4dc436c0fe5645ddb12e";
   // The pairing grid also covers esp-flash-image (#8228); its other 16 rows
   // still hash to d6f88becd's b6447afda4012589….
   const PAIRING_GRID_SHA256 =

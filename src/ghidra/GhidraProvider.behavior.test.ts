@@ -537,6 +537,44 @@ describe("Ghidra provider", () => {
       code: "target_format_unsupported",
     });
   });
+  it("admits raw-binary z80 targets on POSIX and refuses them on Windows P0", async () => {
+    const target: BinaryTarget = {
+      path: "/tmp/cpm_rom.bin",
+      sha256: "a".repeat(64),
+      kind: "executable",
+      format: "raw-binary",
+      architecture: "z80",
+      availableArchitectures: ["z80"],
+      rawLoad: {
+        baseAddress: "0x100",
+        entryPoint: "0x100",
+        entrySource: { kind: "caller" },
+      },
+    };
+    const ghidra = provider();
+    expect(ghidra.inspectTargetSupport(target)).toMatchObject({
+      status: "supported",
+    });
+    const resolved = await ghidra.resolveAnalysisProfile(target);
+    expect(resolved.ok && resolved.value).toMatchObject({
+      profile: {
+        parameters: {
+          target_format: "raw-binary",
+          architecture: "z80",
+          loader: "BinaryLoader",
+          language_id: "z80:LE:16:default",
+          compiler_spec_id: "default",
+          language_selection: "caller-supplied",
+          entry_point: "0x100",
+        },
+      },
+    });
+    const windows = provider(installationHost("win32"));
+    expect(windows.inspectTargetSupport(target)).toMatchObject({
+      status: "unsupported",
+      code: "target_format_unsupported",
+    });
+  });
   it("re-observes the exact installation for each fresh task without launching Ghidra", async () => {
     let probeCount = 0;
     const host: GhidraInstallationHost = {
@@ -785,6 +823,7 @@ describe("Ghidra Mach-O slice support", () => {
         "hexagon",
         "xtensa",
         "6502",
+        "z80",
         "m68k",
       ]),
     );

@@ -113,6 +113,15 @@ export const ghidraRawBinaryLanguage = (
         compilerSpecId: "default",
         defaultAddressSpace: "RAM",
       };
+    case "z80":
+      // Ghidra's Z80 processor module defines Zilog Z80 in the little-endian
+      // 16-bit `ram` space; Z180/Z182 banked windows and separate `io` port
+      // mappings are not modeled as raw-binary variants.
+      return {
+        languageId: "z80:LE:16:default",
+        compilerSpecId: "default",
+        defaultAddressSpace: "ram",
+      };
     case "m68k":
       // Ghidra's default 68000 language decodes the 68040 superset; no
       // MC68000-only variant is declared in the 68000 processor module.
@@ -149,7 +158,7 @@ export const ghidraRawBinaryLanguage = (
 };
 
 const GENERIC_RAW_LANGUAGES =
-  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, and NMOS 6502; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
+  "Little-endian generic Ghidra languages are used for x86, x86_64, arm, arm64, NMOS 6502, and Zilog Z80; m68k uses the big-endian 68000 default language, which decodes the 68040 superset. Big-endian ARM, the 65C02 and 65816, Z180/Z182 segmented banking or Game Boy SM83, and separate 68020, 68030, CPU32 or ColdFire languages are not offered. ARM M-profile code needs architecture_variant, which names only ARM M profiles.";
 
 /** Limitations that every result from a raw-binary session carries. */
 export const ghidraRawBinaryLimitations = (
