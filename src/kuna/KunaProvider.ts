@@ -61,6 +61,7 @@ const KUNA_ARCHITECTURE_LABELS = {
   arm64_32: null,
   mips: null,
   "6502": null,
+  mcs96: null,
   riscv: null,
   powerpc: null,
   m68k: null,

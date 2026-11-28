@@ -34,12 +34,12 @@ The example maps a 32-bit ARM-state image at `0x8000`. For `arm`, decoding
 starts at the entry in ARM (A32) state, so Thumb-only images, including Cortex-M
 firmware, are not supported. See [Limitations](#limitations).
 
-`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, `6502`, or `m68k`. `entry_point` is a
+`architecture` is one of `x86`, `x86_64`, `arm`, `arm64`, `6502`, `mcs96`, or `m68k`. `entry_point` is a
 hexadecimal address of the form `0x…`. The complete file is mapped starting at
 that address, and Ghidra seeds an `entry` function there before auto-analysis.
 ARM and AArch64 entries must be 4-byte aligned; m68k entries must be 2-byte
-aligned; x86 and 6502 entries may be byte-aligned.
-For 6502, the entry and complete mapped file must fit within `0x0000..0xffff`;
+aligned; x86, 6502, and mcs96 entries may be byte-aligned.
+For 6502 and mcs96, the entry and complete mapped file must fit within `0x0000..0xffff`;
 images that cross the 16-bit boundary are rejected before provider startup.
 For m68k, the mapping must fit within `0x0..0xffffffff`.
 `open_binary` and an open `binary_session` return the canonical `entry_point`
@@ -58,6 +58,7 @@ m68k is big-endian and the others are little-endian.
 | arm          | `ARM:LE:32:v7`        | `default`        |
 | arm64        | `AARCH64:LE:64:v8A`   | `default`        |
 | 6502         | `6502:LE:16:default`  | `default`        |
+| mcs96        | `MCS96:LE:16:default` | `default`        |
 | m68k         | `68000:BE:32:default` | `default`        |
 
 Compiler specifications select analysis conventions; they do not identify the
@@ -264,6 +265,24 @@ unchanged source bytes and complete runtime cleanup. Windows requires the
 matching native addon; the POSIX provider path has not been exercised by the
 Windows run.
 
+## Intel MCS-96 (8096 / 80C196)
+
+```bash
+rea function /absolute/path/to/ecu.bin 0x2080 --target-format raw-binary --architecture mcs96 --entry-point 0x2080 --provider ghidra --json
+rea inspect-native-load-image /absolute/path/to/ecu.bin --target-format raw-binary --architecture mcs96 --entry-point 0x2080 --provider ghidra --json
+```
+
+Select headerless little-endian Intel MCS-96 (8096, 8098, 80C196KB/KC, or Ford
+EEC-IV 8061-derived images using standard MCS-96 opcodes) with a known entry at
+file offset 0 inside `0x0000..0xffff`. Hardware reset on Intel MCS-96 begins
+execution at `0x2080` after reading chip configuration bytes (`CCB` at `0x2018`);
+pass `--entry-point 0x2080` when file offset 0 starts at `0x2080`, or pass `0x0`
+for a full 64-KiB dump and inspect `0x2080` directly. Ghidra's built-in
+`MCS96:LE:16:default` language decodes instructions in the 16-bit `RAM` address
+space. Banked 80C196EA/EEC-IV multi-bank ROM paging, Special Function Register
+(`SFR`) peripheral side effects in `0x0000..0x0017`, and Ford-proprietary 8061/8065
+opcode extensions are not modeled. Windows Ghidra P0 does not admit `mcs96`.
+
 ## Motorola 68000
 
 ```bash
@@ -298,7 +317,7 @@ not been exercised.
   addresses, profiles, vector-table locations, or memory maps.
 - Big-endian ARM is unsupported, and m68k is the only big-endian family.
   `architecture_variant` names only the ARM M profiles; no other processor of a
-  family, such as the 65C02 or ColdFire, can be selected.
+  family, such as the 65C02, banked 80C196EA, or ColdFire, can be selected.
 - An M-profile load maps one segment: the file at its base. SRAM, peripheral and
   system blocks are not created, and only the Reset vector is read. Ghidra's
   processor-defined vector labels are not applied, so other vectors are neither

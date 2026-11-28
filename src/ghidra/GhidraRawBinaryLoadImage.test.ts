@@ -23,6 +23,13 @@ import {
 } from "../domain/rawBinary.fixture.js";
 
 describe("raw-binary Ghidra language binding", () => {
+  it("maps the little-endian mcs96 family to the default 16-bit MCS96 language", () => {
+    expect(ghidraRawBinaryLanguage("mcs96")).toEqual({
+      languageId: "MCS96:LE:16:default",
+      compilerSpecId: "default",
+      defaultAddressSpace: "RAM",
+    });
+  });
   it("maps the big-endian m68k family to the default 68000 language", () => {
     expect(ghidraRawBinaryLanguage("m68k")).toEqual({
       languageId: "68000:BE:32:default",
@@ -127,6 +134,44 @@ describe("raw-binary mapped-block state", () => {
         ok: true,
         value: {
           status: space === "RAM" ? "verified" : "mismatch",
+          checks: expect.arrayContaining([
+            expect.objectContaining({
+              name: "default_address_space",
+              expected: "RAM",
+              observed: space,
+              matched: space === "RAM",
+            }),
+          ]),
+        },
+      });
+    },
+  );
+  it.each(["RAM", "ram"])(
+    "requires the bound mcs96 address space for %s observations",
+    (space) => {
+      const f = fixtureRawBinaryLoadImage();
+      const target = {
+        ...f.target,
+        architecture: "mcs96" as const,
+        availableArchitectures: ["mcs96" as const],
+        rawLoad: rawLoadAtEntry("0x2080"),
+      };
+      f.observation.language_id = "MCS96:LE:16:default";
+      f.observation.default_address_space = space;
+      f.observation.entry_points = [target.rawLoad.entryPoint];
+      const mapping = f.observation.mappings[0];
+      if (mapping === undefined)
+        throw new Error("Missing source mapping fixture");
+      mapping.start = target.rawLoad.baseAddress;
+      mapping.end = "0x2083";
+      mapping.address_space = space;
+      expect(
+        attestGhidraRawBinaryLoadImage(f.snapshot, target, f.observation),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          status: space === "RAM" ? "verified" : "mismatch",
+          language_id: "MCS96:LE:16:default",
           checks: expect.arrayContaining([
             expect.objectContaining({
               name: "default_address_space",

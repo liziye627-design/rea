@@ -64,6 +64,7 @@ const IDA_ARCHITECTURES = {
   arm64_32: "unsupported",
   mips: "ghidra",
   "6502": "unsupported",
+  mcs96: "unsupported",
   riscv: "ghidra",
   powerpc: "ghidra",
   m68k: "unsupported",
