@@ -24,6 +24,8 @@ describe("executable header parsing", () => {
     [elf(2, 2, 183), "elf", "arm64"],
     [elf(1, 1, 164), "elf", "hexagon"],
     [elf(1, 1, 94), "elf", "xtensa"],
+    [elf(1, 1, 42), "elf", "superh"],
+    [elf(1, 2, 42), "elf", "superh"],
     [thinMach(0xfeedfacf, 0x0100000c), "mach-o", "arm64"],
     [thinMach(0xcefaedfe, 0x01000007), "mach-o", "x86_64"],
     [thinMach(0xcefaedfe, 0x0200000c), "mach-o", "arm64_32"],
@@ -108,6 +110,9 @@ describe("executable header parsing", () => {
   it.each([
     Buffer.alloc(0),
     Buffer.from([0x7f, 0x45, 0x4c, 0x46]),
+    // EM_SH (42) is ELF32 only in Ghidra SuperH4.opinion.
+    elf(2, 1, 42),
+    elf(2, 2, 42),
     fat([], 2),
     // A FAT table declaring only unsupported CPU types has nothing to select.
     fat([0x00000012]),

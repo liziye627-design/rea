@@ -260,6 +260,25 @@ describe("IDA provider target support", () => {
     expect(support.reason).toContain("hexagon");
     expect(support.reason).toContain("Ghidra");
   });
+  it("declines Renesas/Hitachi SuperH targets with a Ghidra-directed reason", () => {
+    const config = parseConfig({});
+    if (!config.ok) throw new Error("expected valid configuration");
+    const provider = new IdaProvider(config.value, {});
+    const support = provider.inspectTargetSupport({
+      path: "/tmp/sh4_ecu.elf",
+      sha256: "a".repeat(64),
+      kind: "executable",
+      format: "elf",
+      architecture: "superh",
+      availableArchitectures: ["superh"],
+    });
+    expect(support).toMatchObject({
+      status: "unsupported",
+      code: "architecture_unsupported",
+    });
+    expect(support.reason).toContain("superh");
+    expect(support.reason).toContain("Ghidra");
+  });
   it("admits only the families IDA admits today, so new families stay refused", () => {
     const config = parseConfig({});
     if (!config.ok) throw new Error("expected valid configuration");

@@ -218,6 +218,7 @@ const HOPPER_ARCHITECTURE_FLAGS = {
   m68k: "raw-only",
   hexagon: null,
   xtensa: null,
+  superh: null,
 } as const satisfies Record<BinaryArchitecture, string | null>;
 
 type HopperDeclinedArchitecture = {

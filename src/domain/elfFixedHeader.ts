@@ -137,6 +137,8 @@ export const elfArchitecture = (
       return elfClass === 64 ? "powerpc" : undefined;
     case 40:
       return "arm";
+    case 42: // EM_SH: Hitachi/Renesas SuperH ELF32 little- and big-endian objects.
+      return elfClass === undefined || elfClass === 32 ? "superh" : undefined;
     case 164: // EM_HEXAGON: Qualcomm Hexagon DSP (QDSP6).
       return "hexagon";
     case 94: // EM_XTENSA: Tensilica Xtensa.

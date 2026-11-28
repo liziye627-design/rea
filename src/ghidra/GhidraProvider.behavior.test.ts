@@ -537,6 +537,40 @@ describe("Ghidra provider", () => {
       code: "target_format_unsupported",
     });
   });
+  it.each([1, 2] as const)(
+    "admits Renesas/Hitachi SuperH ELF32 endian %i e_machine 42 targets through the header-driven lane",
+    async (dataEncoding) => {
+      const parsed = parseExecutableHeader(elf(1, dataEncoding, 42), "x64");
+      if (!parsed.ok) throw new Error("Expected valid SuperH ELF target");
+      const target: BinaryTarget = {
+        path: "/tmp/sh4_ecu.elf",
+        sha256: "a".repeat(64),
+        kind: "executable",
+        ...parsed.value,
+      };
+      const ghidra = provider();
+      expect(ghidra.inspectTargetSupport(target)).toMatchObject({
+        status: "supported",
+      });
+      const resolved = await ghidra.resolveAnalysisProfile(target);
+      expect(resolved.ok && resolved.value).toMatchObject({
+        profile: {
+          parameters: {
+            target_format: "elf",
+            architecture: "superh",
+            loader: "auto-from-header",
+            language_id: "auto-from-header",
+            compiler_spec_id: "auto-default",
+          },
+        },
+      });
+      const windows = provider(installationHost("win32"));
+      expect(windows.inspectTargetSupport(target)).toMatchObject({
+        status: "unsupported",
+        code: "target_format_unsupported",
+      });
+    },
+  );
   it("re-observes the exact installation for each fresh task without launching Ghidra", async () => {
     let probeCount = 0;
     const host: GhidraInstallationHost = {
@@ -784,6 +818,7 @@ describe("Ghidra Mach-O slice support", () => {
         "powerpc",
         "hexagon",
         "xtensa",
+        "superh",
         "6502",
         "m68k",
       ]),

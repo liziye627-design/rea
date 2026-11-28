@@ -35,6 +35,7 @@ export const BINARY_ARCHITECTURES = [
   "m68k",
   "hexagon",
   "xtensa",
+  "superh",
 ] as const;
 export type BinaryArchitecture = (typeof BINARY_ARCHITECTURES)[number];
 
@@ -129,6 +130,7 @@ export const HEADER_ARCHITECTURE_EXCLUSIONS = [
   ...RAW_ONLY_ARCHITECTURES,
   "hexagon",
   "xtensa",
+  "superh",
   "arm64_32",
 ] as const satisfies readonly BinaryArchitecture[];
 
@@ -390,6 +392,14 @@ export type BinaryTarget =
       readonly format: "elf";
       readonly architecture: "xtensa";
       readonly availableArchitectures: readonly "xtensa"[];
+      readonly executableRole?: never;
+      readonly managed?: never;
+    })
+  | (BinaryTargetIdentity & {
+      readonly kind: "executable";
+      readonly format: "elf";
+      readonly architecture: "superh";
+      readonly availableArchitectures: readonly "superh"[];
       readonly executableRole?: never;
       readonly managed?: never;
     })

@@ -66,6 +66,7 @@ const KUNA_ARCHITECTURE_LABELS = {
   m68k: null,
   hexagon: null,
   xtensa: null,
+  superh: null,
 } as const satisfies Record<BinaryArchitecture, string | null>;
 
 const kunaArchitectureLabels = new Intl.ListFormat("en-GB").format(

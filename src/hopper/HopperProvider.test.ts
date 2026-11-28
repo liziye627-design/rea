@@ -125,7 +125,11 @@ describe("Hopper provider target support", () => {
     });
   });
   it("declines each family Ghidra may admit without stating a Ghidra lane status", () => {
-    const families = [...ELF_METADATA_ARCHITECTURES, "hexagon"] as const;
+    const families = [
+      ...ELF_METADATA_ARCHITECTURES,
+      "hexagon",
+      "superh",
+    ] as const;
     const reasons = families.map((family) =>
       hopperDeclinedArchitectureReason(family),
     );
@@ -150,6 +154,14 @@ describe("Hopper provider target support", () => {
       format: "elf",
       architecture: "hexagon",
       availableArchitectures: ["hexagon"],
+    },
+    {
+      path: "/tmp/sh4_ecu.elf",
+      sha256: "a".repeat(64),
+      kind: "executable",
+      format: "elf",
+      architecture: "superh",
+      availableArchitectures: ["superh"],
     },
     {
       path: "/tmp/router.elf",
